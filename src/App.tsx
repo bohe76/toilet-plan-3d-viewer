@@ -64,7 +64,6 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
       if (e.key >= '1' && e.key <= '8') selectSheet(sheets[Number(e.key) - 1].id);
       else if (e.key === 'f' || e.key === 'F') fit();
       else if (e.key === 'Escape') {

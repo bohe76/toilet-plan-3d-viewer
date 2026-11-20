@@ -63,7 +63,7 @@ pnpm dev --port 5183 --strictPort
 & 'C:\Program Files\Google\Chrome\Application\chrome.exe' --headless=new --user-data-dir="$env:TEMP\chrome-capture" --window-size=2400,2300 --hide-scrollbars --enable-unsafe-swiftshader --virtual-time-budget=25000 --screenshot=work\verify\p6\top.png "http://localhost:5183/?sheet=research-3f&view=top&dim=1"
 ```
 
-- 헤드리스 캡처는 창 안쪽 크기가 지정값보다 작게 잡힌다. 캔버스 오른쪽과 아래에 빈 띠가 생긴다. 실제 브라우저에서는 생기지 않는 캡처 현상이다.
+- 헤드리스 캡처에서는 캔버스 오른쪽과 아래에 빈 띠가 생긴다. 창 안쪽 크기가 지정값보다 작게 잡혀서 생기는 캡처 현상으로 추정한다. 실제 브라우저에서 확인하지는 않았다.
 - 표기 치수와 선 위치가 다르면 표기 치수를 따른다. 그 사실을 `remark` 에 적는다.
 
 ### 7. 독립 검수 (필수)
