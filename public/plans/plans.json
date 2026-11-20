@@ -1,0 +1,74 @@
+[
+ {
+  "page": 1,
+  "skewDeg": 0.785,
+  "appliedDeg": 0.785,
+  "residualDeg": 0.04,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 2,
+  "skewDeg": 0.71,
+  "appliedDeg": 0.71,
+  "residualDeg": 0.015,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 3,
+  "skewDeg": 0.61,
+  "appliedDeg": 0.61,
+  "residualDeg": 0.015,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 4,
+  "skewDeg": 0.685,
+  "appliedDeg": 0.685,
+  "residualDeg": 0.01,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 5,
+  "skewDeg": 0.735,
+  "appliedDeg": 0.735,
+  "residualDeg": 0.065,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 6,
+  "skewDeg": 0.66,
+  "appliedDeg": 0.66,
+  "residualDeg": 0.015,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 7,
+  "skewDeg": 0.685,
+  "appliedDeg": 0.685,
+  "residualDeg": 0.015,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ },
+ {
+  "page": 8,
+  "skewDeg": 0.735,
+  "appliedDeg": 0.735,
+  "residualDeg": 0.015,
+  "width": 3307,
+  "height": 2339,
+  "dpi": 200
+ }
+]
