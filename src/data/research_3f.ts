@@ -1,6 +1,10 @@
 // 3층 연구동 화장실(여) 확대평면도 (변경후) — PDF 6페이지
 // 좌표 출처: scripts/measure_plan.py 로 검출한 선분(300dpi 기울기 보정 이미지)을 mm로 환산했다.
-// 환산식: X = (px - 1969) * 4.372, Y = (py - 958) * 4.372. 원점은 치수선 4,000과 5,600의 시작점(벽 중심선 교점)이다.
+// 환산식: X = (px - 1969) * 4.372, Y = (py - 958) * 4.372.
+// 원점 X=0은 치수선 4,000의 서쪽 끝이다(통심 5에서 서쪽으로 100, 서측 벽 중심). Y=0은 통심 G다.
+// 위쪽과 아래쪽 치수선의 서쪽 시작선이 도면에서 4.3px 다르다(1966.6 / 1970.9). 원점 x는 그 사이인 1969로 두었다.
+// 그래서 가로 치수 2개(위 2,575, 아래 4,000)는 환산 오차가 11mm다. 나머지는 10mm 이내다.
+// 도면의 선 위치(축척 환산)와 표기 치수가 다르면 표기 치수를 따른다.
 // 측정 근거와 판독 메모는 docs/drawings/research_3f_measurements.md 에 있다.
 import type { Calibration, DimValue, Item, Shape, SheetModel, Source } from './types';
 
@@ -64,8 +68,8 @@ const walls: Item[] = [
   },
   {
     id: 'wall-closet-east', layer: 'wall', name: '수채기실 동측 벽', note: '타일 덧대기(적층) (THK 50)',
-    shapes: [box(2490, 5700, 2654, 5854, 0, CH), box(2490, 6540, 2654, 7600, 0, CH), box(2490, 5854, 2654, 6540, 2050, CH)],
-    dims: [dim('서측 벽 중심에서 벽 중심까지', 2575, 'drawn'), dim('두께', 164, 'scaled'), dim('문 개구 폭', 686, 'scaled'), dim('문 개구 높이', 2050, 'drawn')],
+    shapes: [box(2490, 5700, 2654, 5847, 0, CH), box(2490, 6547, 2654, 7600, 0, CH), box(2490, 5847, 2654, 6547, 2050, CH)],
+    dims: [dim('서측 벽 중심에서 벽 중심까지', 2575, 'drawn'), dim('두께', 164, 'scaled'), dim('문 개구 폭', 700, 'drawn'), dim('문 개구 높이', 2050, 'drawn')],
   },
   {
     id: 'wall-south', layer: 'wall', name: '남측 벽',
@@ -86,24 +90,26 @@ const partitions: Item[] = [
   stallPartition(3, 2969),
   {
     id: 'partition-front', layer: 'partition', name: '대변기 칸 전면 칸막이', note: '12mm 지정칸막이 (H=1,950)',
+    remark: '도면의 「(H=1,950)」 지시선은 칸 사이 칸막이를 가리킨다. 전면 패널의 높이와 두께는 같은 것으로 가정했다.',
     shapes: [
       box(2484, -55, 2496, 192, 0, 1950),
       box(2484, 730, 2496, 1229, 0, 1950),
       box(2484, 1735, 2496, 2190, 0, 1950),
       box(2484, 2736, 2496, 2969, 0, 1950),
     ],
-    dims: [dim('높이', 1950, 'drawn'), dim('두께', PT, 'drawn'), dim('패널 위치', '선분 검출값', 'scaled')],
+    dims: [dim('높이', 1950, 'assumed'), dim('두께', PT, 'assumed'), dim('패널 위치', '선분 검출값', 'scaled')],
   },
   {
     id: 'partition-screen', layer: 'partition', name: '세면대 옆 가림 칸막이', note: '12mm 지정칸막이 (800x1,600)',
-    shapes: [box(1918, 4670, 1930, 5475, 0, 1600)],
+    remark: '도면의 선 위치(X 1,924)와 표기 치수(서측 벽면에서 1,800)가 약 14mm 다르다. 표기 치수를 따랐다.',
+    shapes: [box(1904, 4675, 1916, 5475, 0, 1600)],
     dims: [dim('길이', 800, 'drawn'), dim('높이', 1600, 'drawn'), dim('두께', PT, 'drawn'), dim('서측 벽면에서의 거리', 1800, 'drawn')],
   },
   {
     id: 'partition-under-basin', layer: 'partition', name: '세면대 하부 칸막이', note: '세면대 하부 12mm 지정칸막이설치 (500x800)',
-    remark: '도면에서 점선 1개(길이 약 510mm)만 판독된다. 다른 위치의 패널 유무는 도면으로 확인할 수 없다.',
-    shapes: [box(122, 4873, 634, 4885, 0, 800)],
-    dims: [dim('폭', 500, 'drawn'), dim('높이', 800, 'drawn'), dim('남측 벽면에서의 거리', 596, 'scaled')],
+    remark: '도면에서 점선 1개(길이 약 500mm)만 판독된다. 다른 위치의 패널 유무는 도면으로 확인할 수 없다.',
+    shapes: [box(122, 4880, 622, 4892, 0, 800)],
+    dims: [dim('폭', 500, 'drawn'), dim('높이', 800, 'drawn'), dim('남측 벽면에서의 거리', 589, 'scaled')],
   },
 ];
 
@@ -121,13 +127,13 @@ const doors: Item[] = [
   {
     id: 'door-entrance', layer: 'door', name: '출입문 3/SSD',
     remark: '도면은 문을 남쪽(바깥)으로 90도 연 상태로 그렸다. 문 높이는 가정값이다.',
-    shapes: [{ type: 'leaf', hx: 3850, hy: 5620, width: 1000, angleDeg: 90, thickness: 40, z0: 0, z1: HEAD }],
+    shapes: [{ type: 'leaf', hx: 3850, hy: 5650, width: 1000, angleDeg: 90, thickness: 40, z0: 0, z1: HEAD }],
     dims: [dim('문짝 폭', 1000, 'scaled'), dim('높이', HEAD, 'assumed')],
   },
   {
     id: 'door-closet', layer: 'door', name: '수채기실 문 2/SD', note: '기존 점검구 도색 (700X2,050)',
     remark: '도면은 문을 동쪽(바깥)으로 90도 연 상태로 그렸다.',
-    shapes: [{ type: 'leaf', hx: 2667, hy: 5893, width: 645, angleDeg: 0, thickness: 40, z0: 0, z1: 2050 }],
+    shapes: [{ type: 'leaf', hx: 2667, hy: 5885, width: 645, angleDeg: 0, thickness: 40, z0: 0, z1: 2050 }],
     dims: [dim('개구 폭', 700, 'drawn'), dim('높이', 2050, 'drawn'), dim('문짝 폭', 645, 'scaled')],
   },
   {
@@ -151,8 +157,8 @@ const toilet = (n: number, cy: number): Item => ({
 const basin = (n: number, cx: number): Item => ({
   id: `basin-${n}`, layer: 'fixture', name: `세면기 ${n}`,
   remark: '상단 높이는 가정값이다.',
-  shapes: [{ type: 'cylinder', cx, cy: 5133, rx: 215, ry: 215, z0: 620, z1: 800 }],
-  dims: [dim('지름', 430, 'scaled'), dim('남측 벽면에서 중심까지', 342, 'scaled'), dim('상단 높이', 800, 'assumed')],
+  shapes: [{ type: 'cylinder', cx, cy: 5155, rx: 215, ry: 215, z0: 620, z1: 800 }],
+  dims: [dim('지름', 430, 'scaled'), dim('남측 벽면에서 중심까지', 320, 'scaled'), dim('상단 높이', 800, 'assumed')],
 });
 
 const floorDrain = (id: string, cx: number, cy: number): Item => ({
@@ -199,19 +205,19 @@ const accessories: Item[] = [
   {
     id: 'mirror-shelf', layer: 'accessory', name: '선반 위 방습거울 (2EA)', note: 'THK.5 방습거울 (2EA) (기계설비공사)', material: 'mirror',
     remark: '도면에 거울 크기가 없다. 2장의 분할 위치와 높이는 가정값이다.',
-    shapes: [box(110, 520, 116, 1272, 950, 1850), box(110, 1282, 116, 2033, 950, 1850)],
+    shapes: [box(110, 520, 115, 1272, 950, 1850), box(110, 1282, 115, 2033, 950, 1850)],
     dims: [dim('수량', '2EA', 'drawn'), dim('전체 길이', 1513, 'scaled'), dim('높이', 900, 'assumed')],
   },
   {
     id: 'mirror-full', layer: 'accessory', name: '전신 방습거울', note: 'THK.5 방습거울 (기계설비공사) (600X1,500)', material: 'mirror',
     remark: '하단 높이는 가정값이다.',
-    shapes: [box(110, 2772, 116, 3371, 300, 1800)],
+    shapes: [box(110, 2772, 115, 3371, 300, 1800)],
     dims: [dim('폭', 600, 'drawn'), dim('높이', 1500, 'drawn'), dim('선반 끝에서의 거리', 750, 'drawn'), dim('하단 높이', 300, 'assumed')],
   },
   {
     id: 'mirror-basin', layer: 'accessory', name: '세면대 방습거울', note: 'THK.5 방습거울 (기계설비공사) (1,800X1,000)', material: 'mirror',
     remark: '하단 높이는 가정값이다.',
-    shapes: [box(110, 5469, 1918, 5475, 1000, 2000)],
+    shapes: [box(110, 5470, 1904, 5475, 1000, 2000)],
     dims: [dim('폭', 1800, 'drawn'), dim('높이', 1000, 'drawn'), dim('하단 높이', 1000, 'assumed')],
   },
   glassShelf(1, 965),
@@ -219,8 +225,9 @@ const accessories: Item[] = [
   glassShelf(3, 2963),
   {
     id: 'threshold', layer: 'accessory', name: '화강석 재료분리대', note: 'THK30 화강석 재료분리대 설치 (W=150)',
-    shapes: [box(2800, 5548, 3900, 5700, 0, 10)],
-    dims: [dim('폭', 150, 'drawn'), dim('두께', 30, 'drawn'), dim('길이', 1100, 'scaled')],
+    remark: '두께 30은 석재 두께다. 바닥 위로 드러나는 높이는 도면에 없다. 10으로 가정했다.',
+    shapes: [box(2846, 5548, 3852, 5700, 0, 10)],
+    dims: [dim('폭', 150, 'drawn'), dim('두께', 30, 'drawn'), dim('길이', 1006, 'scaled'), dim('노출 높이', 10, 'assumed')],
   },
   {
     id: 'tactile-blocks', layer: 'accessory', name: '점형블럭 2EA', note: '점형블럭 2EA (매립형)', material: 'tactile',
@@ -230,8 +237,8 @@ const accessories: Item[] = [
   {
     id: 'braille-sign', layer: 'accessory', name: '점자표지판', note: '벽면 촉지도식 점자표지판설치', material: 'metal',
     remark: '크기와 설치 높이는 가정값이다.',
-    shapes: [box(2200, 7600, 2305, 7612, 1400, 1550)],
-    dims: [dim('위치', '남측 벽 바깥 면', 'scaled'), dim('설치 높이', 1400, 'assumed')],
+    shapes: [box(2200, 7600, 2490, 7622, 1400, 1550)],
+    dims: [dim('위치', '남측 벽 바깥 면', 'scaled'), dim('폭', 290, 'scaled'), dim('설치 높이', 1400, 'assumed')],
   },
 ];
 
@@ -250,7 +257,7 @@ const lights: Item[] = [
   },
   {
     id: 'light-closet', layer: 'light', name: '조명 표시 (수채기실)', note: '손글씨 「조명」', remark: lightRemark,
-    shapes: [{ type: 'cylinder', cx: 2077, cy: 6663, rx: 120, ry: 120, z0: CH - 40, z1: CH }],
+    shapes: [{ type: 'cylinder', cx: 2068, cy: 6680, rx: 120, ry: 120, z0: CH - 40, z1: CH }],
     dims: [dim('위치', '표시 중심', 'scaled')],
   },
 ];
@@ -284,10 +291,17 @@ export const research3fModel: SheetModel = {
     { from: [2212, 970], to: [2212, 1970], label: '1,000' },
     { from: [2212, 1970], to: [2212, 2970], label: '1,000' },
     { from: [2500, 3235], to: [3900, 3235], label: '1,400' },
-    { from: [110, 4661], to: [1924, 4661], label: '1,800' },
+    { from: [110, 4661], to: [1910, 4661], label: '1,800' },
     { from: [0, 9575], to: [1400, 9575], label: '1,400' },
     { from: [1400, 9575], to: [2575, 9575], label: '1,175' },
     { from: [2575, 9575], to: [4000, 9575], label: '1,425' },
+    { from: [0, 9771], to: [4000, 9771], label: '4,000' },
+    { from: [6978, 0], to: [6978, 2970], label: '2,970' },
+    { from: [6978, 2970], to: [6978, 5600], label: '2,630' },
+    { from: [6978, 5600], to: [6978, 7500], label: '1,900' },
+    { from: [7174, 0], to: [7174, 5600], label: '5,600' },
+    { from: [0, -2120], to: [100, -2120], label: '100' },
+    { from: [0, 9369], to: [100, 9369], label: '100' },
   ],
   roomLabels: [{ text: '화장실(여)', at: [1508, 1535] }],
 };

@@ -15,7 +15,7 @@ pnpm dev
 검사 명령은 `pnpm typecheck` 와 `pnpm lint` 다.
 
 URL 인자로 처음 상태를 정할 수 있다. 예: `?sheet=research-3f&view=top&cut=1200`
-(`view` 는 `top`, `iso`, `eye` 중 하나다. `cut` 은 절단 높이 mm다.)
+(`view` 는 `top`, `iso`, `eye` 중 하나다. `cut` 은 절단 높이 mm다. `dim=1` 은 치수 레이어를 켠다.)
 
 TypeScript는 6.x를 쓴다. `typescript-eslint` 가 7.0을 지원하지 않는다.
 

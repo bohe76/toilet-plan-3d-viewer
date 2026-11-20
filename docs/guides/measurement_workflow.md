@@ -56,6 +56,15 @@ python -m venv .venv
 ### 6. 화면 확인
 
 - 평면 뷰에서 모델이 바닥 도면의 선과 겹치는지 본다. 어긋나면 좌표를 고친다.
+- 브라우저 자동화 도구가 없으면 Chrome 헤드리스로 캡처한다. 개발 서버를 띄운 뒤 아래 명령을 쓴다.
+
+```powershell
+pnpm dev --port 5183 --strictPort
+& 'C:\Program Files\Google\Chrome\Application\chrome.exe' --headless=new --user-data-dir="$env:TEMP\chrome-capture" --window-size=2400,2300 --hide-scrollbars --enable-unsafe-swiftshader --virtual-time-budget=25000 --screenshot=work\verify\p6\top.png "http://localhost:5183/?sheet=research-3f&view=top&dim=1"
+```
+
+- 헤드리스 캡처는 창 안쪽 크기가 지정값보다 작게 잡힌다. 캔버스 오른쪽과 아래에 빈 띠가 생긴다. 실제 브라우저에서는 생기지 않는 캡처 현상이다.
+- 표기 치수와 선 위치가 다르면 표기 치수를 따른다. 그 사실을 `remark` 에 적는다.
 
 ### 7. 독립 검수 (필수)
 

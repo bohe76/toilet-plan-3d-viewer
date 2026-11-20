@@ -17,7 +17,7 @@ const DEFAULT_CEILING = 2550;
 const DEFAULT_CUT = 1200;
 const PILOT_ID = 'research-3f';
 
-// URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200
+// URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200&dim=1
 const params = new URLSearchParams(window.location.search);
 const initialSheet = sheets.find((s) => s.id === (params.get('sheet') ?? PILOT_ID)) ?? sheets[0];
 const paramView = params.get('view');
@@ -28,7 +28,7 @@ export function App() {
   const [activeId, setActiveId] = useState(initialSheet.id);
   const [view, setView] = useState<ViewMode>(initialView);
   const [layers, setLayers] = useState<Record<LayerId, boolean>>({
-    wall: true, partition: true, door: true, fixture: true, accessory: true, light: true, dim: false,
+    wall: true, partition: true, door: true, fixture: true, accessory: true, light: true, dim: params.get('dim') === '1',
   });
   const [underlayVisible, setUnderlayVisible] = useState(true);
   const [underlayOpacity, setUnderlayOpacity] = useState(0.9);
