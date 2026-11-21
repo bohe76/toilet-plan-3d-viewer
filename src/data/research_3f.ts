@@ -343,6 +343,8 @@ export const research3fModel: SheetModel = {
   isoDir: [-1, -1],
   // 창은 북측 벽에 있다. 자연광은 북쪽에서 남쪽으로 들어온다.
   daylightDir: [0.2, 1],
+  // 도면의 타일 나누기 선에서 읽은 교점이다. 화장실 600 격자와 수채기실 200 격자다.
+  tileOrigin: { floorTile: [281, 77], smallTile: [1677, 5913] },
   items: [...walls, ...partitions, ...doors, ...fixtures, ...accessories, ...lights, ...finishes],
   // 치수선 위치는 도면의 치수선 위치와 같다.
   dimLines: [

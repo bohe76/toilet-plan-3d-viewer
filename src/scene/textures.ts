@@ -251,15 +251,15 @@ function ceilingMaps(): SurfaceMaps {
 type SurfaceId = 'floorTile' | 'wallTile' | 'smallTile' | 'wainscotTile' | 'wood' | 'marble' | 'granite' | 'ceiling';
 
 const BUILDERS: Record<SurfaceId, () => SurfaceMaps> = {
-  // 바닥 포세린타일 600 x 600. 줄눈은 도면의 타일 나누기 선(X 281, Y 77)에 맞춘다.
+  // 바닥 포세린타일 600 x 600. 줄눈 시작점은 탭마다 다르다. setTileOrigin 이 맞춘다.
   floorTile: () =>
-    tileMaps({ tile: 600, count: 4, base: [150, 142, 130], vary: 0.025, cloud: 0.09, veins: 2, grout: [108, 102, 93], groutMm: 3, rough: 0.34, seed: 3, origin: [0.281, 0.077] }),
+    tileMaps({ tile: 600, count: 4, base: [150, 142, 130], vary: 0.025, cloud: 0.09, veins: 2, grout: [108, 102, 93], groutMm: 3, rough: 0.34, seed: 3 }),
   // 벽 포세린타일 600 x 600
   wallTile: () =>
     tileMaps({ tile: 600, count: 4, base: [222, 213, 198], vary: 0.012, cloud: 0.07, veins: 2, grout: [192, 184, 170], groutMm: 2.5, rough: 0.3, seed: 5 }),
   // 수채기실 바닥 자기질 타일 200 x 200
   smallTile: () =>
-    tileMaps({ tile: 200, count: 4, base: [140, 134, 124], vary: 0.05, cloud: 0.05, veins: 0, grout: [98, 93, 86], groutMm: 4, rough: 0.7, seed: 7, origin: [1.677, 5.913] }),
+    tileMaps({ tile: 200, count: 4, base: [140, 134, 124], vary: 0.05, cloud: 0.05, veins: 0, grout: [98, 93, 86], groutMm: 4, rough: 0.7, seed: 7 }),
   // 수채기실 벽 도기질 타일
   wainscotTile: () =>
     tileMaps({ tile: 200, count: 4, base: [232, 229, 221], vary: 0.015, cloud: 0.03, veins: 0, grout: [196, 192, 184], groutMm: 3, rough: 0.22, seed: 9 }),
@@ -278,4 +278,15 @@ export function surfaceMaps(id: SurfaceId): SurfaceMaps {
     cache.set(id, maps);
   }
   return maps;
+}
+
+/**
+ * 바닥 타일의 줄눈 시작점을 맞춘다. originMm은 도면의 타일 나누기 선 교점 [x, y] mm다.
+ * 질감은 모든 탭이 함께 쓴다. 화면에는 탭이 1개만 나오므로 탭을 바꿀 때 시작점만 다시 맞춘다.
+ */
+export function setTileOrigin(id: 'floorTile' | 'smallTile', originMm: [number, number] = [0, 0]): void {
+  const { map, roughnessMap } = surfaceMaps(id);
+  for (const t of [map, roughnessMap]) {
+    t?.offset.set((-originMm[0] / 1000) * t.repeat.x, (-originMm[1] / 1000) * t.repeat.y);
+  }
 }

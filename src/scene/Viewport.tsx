@@ -7,6 +7,7 @@ import { defaultCalibration } from '../data/sheets';
 import type { Bounds, DimLine, Item, LayerId, Shape, Sheet } from '../data/types';
 import { buildGeometry, cutKey, M } from './geometry';
 import { DRAW_COLORS, LAYER_MATERIAL, NO_SHADOW, realMaterial, type Highlight } from './materials';
+import { setTileOrigin } from './textures';
 import { GUIDE_ONLY, PathTracer, TRACE_ONLY, type PathTraceStatus } from './PathTracer';
 import { RealStage } from './RealStage';
 
@@ -484,6 +485,13 @@ export function Viewport(props: ViewportProps) {
   const tracing = real && props.pathTrace;
 
   useEffect(() => setHoverName(null), [sheet.id]);
+
+  // 바닥 타일의 줄눈 시작점은 탭마다 다르다. 그리기 전에 이 탭의 값으로 맞춘다.
+  useLayoutEffect(() => {
+    if (!real) return;
+    setTileOrigin('floorTile', model.tileOrigin?.floorTile);
+    setTileOrigin('smallTile', model.tileOrigin?.smallTile);
+  }, [real, model]);
 
   // 마감(바닥·벽·천장)은 실사 모드에서만 그린다. 도면 모드에서는 스캔 도면이 바닥이다.
   const items = useMemo(
