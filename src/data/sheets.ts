@@ -1,4 +1,5 @@
 import { research3fCalibration, research3fModel } from './research_3f';
+import { research3fAdded } from './research_3f_added';
 import type { Calibration, Sheet } from './types';
 
 const image = (page: number) => `${import.meta.env.BASE_URL}plans/plan_${page}.jpg`;
@@ -12,7 +13,9 @@ export const sheets: Sheet[] = [
   { id: 'research-2f', page: 5, building: '연구동', tab: '2F 여·남', title: '2층 연구동 화장실 확대평면도 (변경후)', image: image(5) },
   {
     id: 'research-3f', page: 6, building: '연구동', tab: '3F 여', title: '3층 연구동 화장실 확대평면도 (변경후)', image: image(6),
-    calibration: research3fCalibration, model: research3fModel,
+    calibration: research3fCalibration,
+    // 도면 근거 품목 뒤에 상식 보완 품목(added)을 붙인다.
+    model: { ...research3fModel, items: [...research3fModel.items, ...research3fAdded] },
   },
   { id: 'research-4f', page: 7, building: '연구동', tab: '4F 남', title: '4층 연구동 화장실 확대평면도 (변경후)', image: image(7) },
   { id: 'research-5f', page: 8, building: '연구동', tab: '5F 여', title: '5층 연구동 화장실 확대평면도 (변경후)', image: image(8) },

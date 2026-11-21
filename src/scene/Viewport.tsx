@@ -1,53 +1,90 @@
 import { Edges, Html, Line, OrbitControls, OrthographicCamera, PerspectiveCamera, useTexture } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react';
 import * as THREE from 'three';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 import { defaultCalibration } from '../data/sheets';
-import type { Bounds, DimLine, Item, LayerId, MaterialId, Shape, Sheet } from '../data/types';
+import type { Bounds, DimLine, Item, LayerId, Shape, Sheet } from '../data/types';
+import { buildGeometry, cutKey, M } from './geometry';
+import { DRAW_COLORS, LAYER_MATERIAL, NO_SHADOW, realMaterial, type Highlight } from './materials';
+import { PathTracer, type PathTraceStatus } from './PathTracer';
+import { RealStage } from './RealStage';
 
 export type ViewMode = 'top' | 'iso' | 'eye';
+/** plan=도면 모드(스캔 도면 겹침, 검수용), real=실사 모드 */
+export type RenderMode = 'plan' | 'real';
+
+/** 화면 이동 요청. dx는 오른쪽, dy는 앞쪽(평면 뷰는 위쪽)이 +다. 단위는 걸음이다. */
+export interface PanRequest {
+  dx: number;
+  dy: number;
+  fast: boolean;
+  tick: number;
+}
 
 export interface ViewportProps {
   sheet: Sheet;
   view: ViewMode;
+  mode: RenderMode;
   layers: Record<LayerId, boolean>;
+  /** 상식 보완 품목(도면에 없는 것)을 그릴지 여부 */
+  showAdded: boolean;
   underlayVisible: boolean;
   underlayOpacity: number;
   cutHeight: number;
   selectedId: string | null;
   fitTick: number;
+  pan: PanRequest | null;
+  /** 고품질 렌더(경로 추적)를 켠다. 실사 모드에서만 쓴다. */
+  pathTrace: boolean;
+  onPathTrace: (status: PathTraceStatus) => void;
+  /** 시점을 바꾸는 조작이 있었다. 고품질 렌더를 끝내게 한다. */
+  onInterrupt: () => void;
+  /** 마우스로 시점을 움직이는 중인지 알린다. */
+  onDrag: (active: boolean) => void;
   onSelect: (id: string | null) => void;
   onCursor: (x: number, y: number) => void;
   onFit: () => void;
 }
 
-/** mm를 장면 단위(m)로 바꾼다. */
-const M = 0.001;
-
-const COLORS: Record<MaterialId, string> = {
-  wall: '#d7dbe0',
-  glass: '#9fd3f0',
-  partition: '#cdb891',
-  door: '#b08d57',
-  ceramic: '#ffffff',
-  stone: '#9a9fa6',
-  mirror: '#bfe3ea',
-  metal: '#6f7680',
-  tactile: '#f2c200',
-  light: '#ffb300',
-};
-
-const LAYER_MATERIAL: Record<LayerId, MaterialId> = {
-  wall: 'wall',
-  partition: 'partition',
-  door: 'door',
-  fixture: 'ceramic',
-  accessory: 'stone',
-  light: 'light',
-  dim: 'metal',
-};
+/** 화살표 키 한 번에 움직이는 거리(m). Shift를 누르면 FAST_STEP이다. */
+const PAN_STEP = 0.25;
+const FAST_STEP = 1;
 
 const noRaycast = () => null;
+
+/**
+ * 거울 반사면의 셰이더. 반사 화면에 거울 색을 곱한다.
+ * three.js 기본 셰이더의 오버레이 합성은 0~1 범위를 가정해서, 1보다 밝은 곳(HDR)에 주황색 얼룩이 생긴다.
+ */
+const MIRROR_SHADER = {
+  name: 'MirrorShader',
+  uniforms: { color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null } },
+  vertexShader: /* glsl */ `
+    uniform mat4 textureMatrix;
+    varying vec4 vUv;
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+    void main() {
+      vUv = textureMatrix * vec4( position, 1.0 );
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      #include <logdepthbuf_vertex>
+    }`,
+  fragmentShader: /* glsl */ `
+    uniform vec3 color;
+    uniform sampler2D tDiffuse;
+    varying vec4 vUv;
+    #include <logdepthbuf_pars_fragment>
+    void main() {
+      #include <logdepthbuf_fragment>
+      gl_FragColor = vec4( texture2DProj( tDiffuse, vUv ).rgb * color, 1.0 );
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+};
+
+/** 거울 반사면 하나가 장면을 그리는 동안 true다. 그 사이 다른 거울은 지난 화면을 그대로 쓴다. 거울끼리 서로를 거듭 그리지 않게 한다. */
+let reflecting = false;
 
 function sheetBounds(sheet: Sheet): Bounds {
   if (sheet.model) return sheet.model.bounds;
@@ -60,71 +97,127 @@ function sheetBounds(sheet: Sheet): Bounds {
   };
 }
 
-/** 절단 높이(cut)보다 위는 그리지 않는다. */
-function ShapeMesh({ shape, cut, children }: { shape: Shape; cut: number; children: ReactNode }) {
-  const z1 = Math.min(shape.z1, cut);
-  if (z1 <= shape.z0) return null;
-  const h = (z1 - shape.z0) * M;
-  const y = ((shape.z0 + z1) / 2) * M;
-  switch (shape.type) {
-    case 'box':
-      return (
-        <mesh position={[((shape.x0 + shape.x1) / 2) * M, y, ((shape.y0 + shape.y1) / 2) * M]}>
-          <boxGeometry args={[(shape.x1 - shape.x0) * M, h, (shape.y1 - shape.y0) * M]} />
-          {children}
-        </mesh>
-      );
-    case 'cylinder':
-      return (
-        <mesh position={[shape.cx * M, y, shape.cy * M]} scale={[shape.rx * M, h, shape.ry * M]}>
-          <cylinderGeometry args={[1, 1, 1, 40]} />
-          {children}
-        </mesh>
-      );
-    case 'leaf':
-      return (
-        <group position={[shape.hx * M, y, shape.hy * M]} rotation={[0, -THREE.MathUtils.degToRad(shape.angleDeg), 0]}>
-          <mesh position={[(shape.width / 2) * M, 0, 0]}>
-            <boxGeometry args={[shape.width * M, h, shape.thickness * M]} />
-            {children}
-          </mesh>
-        </group>
-      );
-    case 'quarter':
-      return (
-        <mesh position={[shape.cx * M, y, shape.cy * M]}>
-          <cylinderGeometry
-            args={[shape.r * M, shape.r * M, h, 24, 1, false, -THREE.MathUtils.degToRad(shape.startDeg), Math.PI / 2]}
-          />
-          {children}
-        </mesh>
-      );
+interface ShapeMeshProps {
+  shape: Shape;
+  item: Item;
+  cut: number;
+  real: boolean;
+  highlight: Highlight;
+}
+
+function ShapeMesh({ shape, item, cut, real, highlight }: ShapeMeshProps) {
+  const key = cutKey(shape, cut);
+  const geometry = useMemo(() => buildGeometry(shape, key), [shape, key]);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+  if (!geometry) return null;
+  const materialId = shape.material ?? item.material ?? LAYER_MATERIAL[item.layer];
+  if (real) {
+    const shadow = !NO_SHADOW.has(materialId);
+    // 두 모드의 메시에 다른 key를 준다. 같은 메시를 다시 쓰면 material 속성이 빠지면서 기본 재질(흰색)로 돌아간다.
+    return <mesh key="real" geometry={geometry} material={realMaterial(materialId, highlight)} castShadow={shadow} receiveShadow={shadow} />;
   }
+  const isLight = item.layer === 'light';
+  const translucent = materialId === 'glass' || materialId === 'mirror';
+  const color = highlight === 'selected' ? '#ff6b3d' : highlight === 'hover' ? '#ffc56e' : DRAW_COLORS[materialId];
+  return (
+    <mesh key="plan" geometry={geometry}>
+      <meshStandardMaterial
+        color={color}
+        roughness={0.85}
+        transparent={translucent}
+        opacity={translucent ? 0.55 : 1}
+        emissive={isLight ? '#ffb300' : '#000000'}
+        emissiveIntensity={isLight ? 0.6 : 0}
+      />
+      <Edges threshold={20} color={highlight === 'selected' ? '#b3300b' : '#59606b'} />
+    </mesh>
+  );
+}
+
+/**
+ * 실사 모드의 거울 반사면. 거울 상자마다 평면 1장이 장면을 한 번 더 그려서 비춘다.
+ * 반사면을 쓸 때는 거울 상자를 그리지 않는다. 상자가 반사면 바로 뒤에 있어서 반사 화면에 상자 뒷면이 찍힌다.
+ */
+function MirrorSurface({ item, cut }: { item: Item; cut: number }) {
+  const boxes = useMemo(() => item.shapes.filter((s) => s.type === 'box'), [item]);
+  const facing = item.facing;
+  if (!facing) return null;
+  return (
+    <>
+      {boxes.map((box, i) => (
+        <MirrorPane key={i} box={box} facing={facing} cut={cut} />
+      ))}
+    </>
+  );
+}
+
+function MirrorPane({ box, facing, cut }: { box: Extract<Shape, { type: 'box' }>; facing: [number, number]; cut: number }) {
+  // 거울이 잘리지 않는 절단 높이에서는 반사면을 다시 만들지 않는다.
+  const key = cut >= box.z1 ? Infinity : cut;
+  const reflector = useMemo(() => {
+    const { x0, x1, y0, y1, z0 } = box;
+    const z1 = Math.min(box.z1, key);
+    if (z1 <= z0) return null;
+    const alongX = facing[0] === 0;
+    const width = (alongX ? x1 - x0 : y1 - y0) * M;
+    const mirror = new Reflector(new THREE.PlaneGeometry(width, (z1 - z0) * M), { textureWidth: 1024, textureHeight: 1024, color: 0xe4e9e8, shader: MIRROR_SHADER });
+    // 거울 앞면에서 1mm 띄운다.
+    const px = alongX ? (x0 + x1) / 2 : facing[0] > 0 ? x1 + 1 : x0 - 1;
+    const py = alongX ? (facing[1] > 0 ? y1 + 1 : y0 - 1) : (y0 + y1) / 2;
+    mirror.position.set(px * M, ((z0 + z1) / 2) * M, py * M);
+    mirror.rotation.y = Math.atan2(facing[0], facing[1]);
+    const render = mirror.onBeforeRender;
+    mirror.onBeforeRender = function (...args) {
+      if (reflecting) return;
+      reflecting = true;
+      try {
+        render.apply(this, args);
+      } finally {
+        reflecting = false;
+      }
+    };
+    return mirror;
+  }, [box, facing, key]);
+  useEffect(
+    () => () => {
+      reflector?.geometry.dispose();
+      reflector?.dispose();
+    },
+    [reflector],
+  );
+  return reflector ? <primitive object={reflector} /> : null;
 }
 
 interface ItemGroupProps {
   item: Item;
   cut: number;
+  real: boolean;
+  /** 고품질 렌더 중이다. 거울 반사면을 끄고(거울 재질이 직접 반사한다) 강조색을 뺀다(강조색은 빛을 내는 재질이라 렌더에 섞인다). */
+  tracing: boolean;
   selected: boolean;
   onSelect: (id: string) => void;
   onHover: (name: string | null) => void;
   onFocus: (point: THREE.Vector3) => void;
 }
 
-function ItemGroup({ item, cut, selected, onSelect, onHover, onFocus }: ItemGroupProps) {
+function ItemGroup({ item, cut, real, tracing, selected, onSelect, onHover, onFocus }: ItemGroupProps) {
   const [hovered, setHovered] = useState(false);
-  const materialId = item.material ?? LAYER_MATERIAL[item.layer];
-  const isLight = item.layer === 'light';
-  const translucent = materialId === 'glass' || materialId === 'mirror';
-  const color = selected ? '#ff6b3d' : hovered ? '#ffc56e' : COLORS[materialId];
+  // 마감(바닥·벽·천장)은 넓어서 마우스를 올려도 강조하지 않는다. 클릭하면 선택된다.
+  const quiet = item.layer === 'finish';
+  // 도면 모드의 조명 표시는 절단 높이와 관계없이 천장면에 그린다.
+  const itemCut = !real && item.layer === 'light' ? Infinity : cut;
+  const highlight: Highlight = tracing ? 'none' : selected ? 'selected' : hovered ? 'hover' : 'none';
+  const mirrored = real && !tracing && item.facing !== undefined;
   return (
     <group
       onPointerOver={(e) => {
+        if (quiet) return;
         e.stopPropagation();
         setHovered(true);
         onHover(item.name);
       }}
       onPointerOut={() => {
+        if (quiet) return;
         setHovered(false);
         onHover(null);
       }}
@@ -137,19 +230,11 @@ function ItemGroup({ item, cut, selected, onSelect, onHover, onFocus }: ItemGrou
         onFocus(e.point.clone());
       }}
     >
-      {item.shapes.map((shape, i) => (
-        <ShapeMesh key={i} shape={shape} cut={isLight ? Infinity : cut}>
-          <meshStandardMaterial
-            color={color}
-            roughness={0.85}
-            transparent={translucent}
-            opacity={translucent ? 0.55 : 1}
-            emissive={isLight ? '#ffb300' : '#000000'}
-            emissiveIntensity={isLight ? 0.6 : 0}
-          />
-          <Edges threshold={20} color={selected ? '#b3300b' : '#59606b'} />
-        </ShapeMesh>
-      ))}
+      {mirrored ? (
+        <MirrorSurface item={item} cut={itemCut} />
+      ) : (
+        item.shapes.map((shape, i) => <ShapeMesh key={i} shape={shape} item={item} cut={itemCut} real={real} highlight={highlight} />)
+      )}
     </group>
   );
 }
@@ -171,6 +256,7 @@ function UnderlayImage({ url, width, depth, opacity }: { url: string; width: num
 
 interface FloorProps {
   sheet: Sheet;
+  real: boolean;
   underlayVisible: boolean;
   underlayOpacity: number;
   onCursor: (x: number, y: number) => void;
@@ -178,21 +264,30 @@ interface FloorProps {
   onFit: () => void;
 }
 
-/** 도면 한 장 크기의 바닥판. 스캔 도면을 mm 좌표에 맞춰 깐다. */
-function Floor({ sheet, underlayVisible, underlayOpacity, onCursor, onSelect, onFit }: FloorProps) {
+/** 도면 한 장 크기의 바닥판. 도면 모드는 스캔 도면을 mm 좌표에 맞춰 깐다. 실사 모드는 실 바깥의 바닥이 된다. */
+function Floor({ sheet, real, underlayVisible, underlayOpacity, onCursor, onSelect, onFit }: FloorProps) {
   const cal = sheet.calibration ?? defaultCalibration;
   const width = cal.workSize[0] * cal.mmPerPx * M;
   const depth = cal.workSize[1] * cal.mmPerPx * M;
   const cx = (cal.workSize[0] / 2 - cal.originPx[0]) * cal.mmPerPx * M;
   const cz = (cal.workSize[1] / 2 - cal.originPx[1]) * cal.mmPerPx * M;
+  const handlers = {
+    onPointerMove: (e: { point: THREE.Vector3 }) => onCursor(e.point.x / M, e.point.z / M),
+    onClick: () => onSelect(null),
+    onDoubleClick: onFit,
+  };
+  if (real) {
+    // 실 바깥(복도)의 마감은 도면에 없다. 중립 회색 바닥으로 둔다. 실 안의 바닥 마감보다 30mm 아래다.
+    return (
+      <mesh position={[cx, -0.03, cz]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow {...handlers}>
+        <planeGeometry args={[width * 2, depth * 2]} />
+        <meshStandardMaterial color="#aeaaa3" roughness={0.95} />
+      </mesh>
+    );
+  }
   return (
     <group position={[cx, 0, cz]} rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh
-        position={[0, 0, -0.01]}
-        onPointerMove={(e) => onCursor(e.point.x / M, e.point.z / M)}
-        onClick={() => onSelect(null)}
-        onDoubleClick={onFit}
-      >
+      <mesh position={[0, 0, -0.01]} {...handlers}>
         <planeGeometry args={[width, depth]} />
         <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </mesh>
@@ -205,7 +300,7 @@ function Floor({ sheet, underlayVisible, underlayOpacity, onCursor, onSelect, on
   );
 }
 
-function DimLines({ lines }: { lines: DimLine[] }) {
+function DimLines({ lines, portal }: { lines: DimLine[]; portal: RefObject<HTMLElement> }) {
   return (
     <>
       {lines.map((line, i) => {
@@ -214,7 +309,7 @@ function DimLines({ lines }: { lines: DimLine[] }) {
         return (
           <group key={i}>
             <Line points={[a, b]} color="#0b63ce" lineWidth={1.5} />
-            <Html position={[(a[0] + b[0]) / 2, 0.02, (a[2] + b[2]) / 2]} center className="dim-label" zIndexRange={[5, 0]}>
+            <Html portal={portal} position={[(a[0] + b[0]) / 2, 0.02, (a[2] + b[2]) / 2]} center className="dim-label" zIndexRange={[5, 0]}>
               {line.label}
             </Html>
           </group>
@@ -224,18 +319,35 @@ function DimLines({ lines }: { lines: DimLine[] }) {
   );
 }
 
+/**
+ * 도면 모드는 톤 매핑을 쓰지 않는다.
+ * 실사 모드의 후처리는 꺼질 때 톤 매핑을 켜진 값으로 되돌려 놓는다. 그 뒤에 다시 끈다.
+ */
+function FlatTone() {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    gl.toneMapping = THREE.NoToneMapping;
+  }, [gl]);
+  return null;
+}
+
 interface CameraRigProps {
   sheet: Sheet;
   view: ViewMode;
   fitTick: number;
   focus: { point: THREE.Vector3; tick: number } | null;
+  pan: PanRequest | null;
+  onInterrupt: () => void;
+  onDrag: (active: boolean) => void;
 }
 
-function CameraRig({ sheet, view, fitTick, focus }: CameraRigProps) {
+function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag }: CameraRigProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const camera = useThree((s) => s.camera);
   const get = useThree((s) => s.get);
+  const invalidate = useThree((s) => s.invalidate);
   const handledFocus = useRef(0);
+  const handledPan = useRef(pan?.tick ?? 0);
 
   // 뷰, 탭, 맞춤 요청이 바뀌면 카메라를 기본 위치로 옮긴다.
   useLayoutEffect(() => {
@@ -264,7 +376,8 @@ function CameraRig({ sheet, view, fitTick, focus }: CameraRigProps) {
     }
     camera.updateProjectionMatrix();
     ctl.update();
-  }, [camera, get, sheet, view, fitTick]);
+    invalidate();
+  }, [camera, get, invalidate, sheet, view, fitTick]);
 
   // 더블클릭한 지점으로 주시점을 옮긴다. 카메라와의 상대 위치는 유지한다.
   useEffect(() => {
@@ -274,7 +387,30 @@ function CameraRig({ sheet, view, fitTick, focus }: CameraRigProps) {
     camera.position.add(focus.point.clone().sub(ctl.target));
     ctl.target.copy(focus.point);
     ctl.update();
-  }, [focus, camera]);
+    invalidate();
+  }, [focus, camera, invalidate]);
+
+  // 화살표 키와 이동 버튼. 카메라와 주시점을 함께 옮긴다. 높이는 바꾸지 않는다.
+  useEffect(() => {
+    const ctl = controls.current;
+    if (!pan || !ctl || pan.tick === handledPan.current) return;
+    handledPan.current = pan.tick;
+    const forward = new THREE.Vector3(0, 0, -1);
+    if (view !== 'top') {
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      // 바로 아래를 볼 때는 화면 위쪽을 앞으로 삼는다.
+      if (forward.lengthSq() < 1e-6) forward.set(0, 1, 0).applyQuaternion(camera.quaternion).setY(0);
+      forward.normalize();
+    }
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
+    const step = pan.fast ? FAST_STEP : PAN_STEP;
+    const delta = right.multiplyScalar(pan.dx * step).addScaledVector(forward, pan.dy * step);
+    camera.position.add(delta);
+    ctl.target.add(delta);
+    ctl.update();
+    invalidate();
+  }, [pan, view, camera, invalidate]);
 
   const top = view === 'top';
   return (
@@ -283,6 +419,15 @@ function CameraRig({ sheet, view, fitTick, focus }: CameraRigProps) {
       ref={controls}
       makeDefault
       zoomToCursor
+      // 시점을 움직이기 시작하면 고품질 렌더를 끝낸다. 손을 떼면 대기 시간을 다시 센다.
+      onStart={() => {
+        onInterrupt();
+        onDrag(true);
+      }}
+      onEnd={() => {
+        onDrag(false);
+        onInterrupt();
+      }}
       enableDamping={false}
       enableRotate={!top}
       maxPolarAngle={top ? Math.PI : Math.PI / 2 - 0.01}
@@ -300,12 +445,25 @@ export function Viewport(props: ViewportProps) {
   const [focus, setFocus] = useState<{ point: THREE.Vector3; tick: number } | null>(null);
   const [hoverName, setHoverName] = useState<string | null>(null);
   const tooltip = useRef<HTMLDivElement>(null);
+  // 치수와 실명 라벨(drei Html)을 붙이는 곳이다. 한 곳으로 고정한다.
+  // 고정하지 않으면 캔버스 초기화 중에 붙이는 곳이 한 번 바뀐다. 그때 라벨을 떼었다 다시 붙이면서 removeChild 오류가 난다.
+  const [overlay, setOverlay] = useState<HTMLDivElement | null>(null);
+  const portal = useMemo<RefObject<HTMLElement> | null>(() => (overlay ? { current: overlay } : null), [overlay]);
   const model = sheet.model;
+  const real = props.mode === 'real' && model !== undefined;
+  const tracing = real && props.pathTrace;
 
   useEffect(() => setHoverName(null), [sheet.id]);
 
+  // 마감(바닥·벽·천장)은 실사 모드에서만 그린다. 도면 모드에서는 스캔 도면이 바닥이다.
+  const items = useMemo(
+    () => (model?.items ?? []).filter((item) => layers[item.layer] && (props.showAdded || !item.added) && (real || item.layer !== 'finish')),
+    [model, layers, props.showAdded, real],
+  );
+
   return (
     <div
+      ref={setOverlay}
       className="viewport"
       onMouseMove={(e) => {
         const el = tooltip.current;
@@ -315,40 +473,55 @@ export function Viewport(props: ViewportProps) {
         el.style.top = `${e.clientY - rect.top + 14}px`;
       }}
     >
-      <Canvas flat dpr={[1, 2]} onPointerMissed={() => onSelect(null)}>
-        <color attach="background" args={['#e9ecf0']} />
-        <ambientLight intensity={1.7} />
-        <directionalLight position={[6, 12, 4]} intensity={1.3} />
+      {/* 실사 모드는 화면이 바뀔 때만 다시 그린다. 광원, 그림자, 거울 반사가 무겁다. */}
+      <Canvas flat={!real} shadows={real} frameloop={real ? 'demand' : 'always'} dpr={[1, 2]} onPointerMissed={() => onSelect(null)}>
+        {real && model ? (
+          <RealStage model={model} items={items} postprocessing={!tracing} />
+        ) : (
+          <>
+            <FlatTone />
+            <color attach="background" args={['#e9ecf0']} />
+            <ambientLight intensity={1.7} />
+            <directionalLight position={[6, 12, 4]} intensity={1.3} />
+          </>
+        )}
         <PerspectiveCamera makeDefault={view !== 'top'} fov={45} near={0.05} far={400} />
         <OrthographicCamera makeDefault={view === 'top'} up={[0, 0, -1]} near={0.1} far={400} />
-        <CameraRig sheet={sheet} view={view} fitTick={props.fitTick} focus={focus} />
+        <CameraRig sheet={sheet} view={view} fitTick={props.fitTick} focus={focus} pan={props.pan} onInterrupt={props.onInterrupt} onDrag={props.onDrag} />
         <Floor
           sheet={sheet}
+          real={real}
           underlayVisible={props.underlayVisible}
           underlayOpacity={props.underlayOpacity}
           onCursor={props.onCursor}
           onSelect={onSelect}
           onFit={props.onFit}
         />
-        {model?.items
-          .filter((item) => layers[item.layer])
-          .map((item) => (
-            <ItemGroup
-              key={`${sheet.id}-${item.id}`}
-              item={item}
-              cut={cutHeight}
-              selected={item.id === selectedId}
-              onSelect={onSelect}
-              onHover={setHoverName}
-              onFocus={(point) => setFocus((prev) => ({ point, tick: (prev?.tick ?? 0) + 1 }))}
-            />
-          ))}
-        {model && layers.dim && <DimLines lines={model.dimLines} />}
-        {model?.roomLabels.map((label) => (
-          <Html key={label.text} position={[label.at[0] * M, 0.02, label.at[1] * M]} center className="room-label" zIndexRange={[5, 0]}>
-            {label.text}
-          </Html>
+        {items.map((item) => (
+          <ItemGroup
+            key={`${sheet.id}-${item.id}`}
+            item={item}
+            cut={cutHeight}
+            real={real}
+            tracing={tracing}
+            selected={item.id === selectedId}
+            onSelect={onSelect}
+            onHover={setHoverName}
+            onFocus={(point) => {
+              props.onInterrupt();
+              setFocus((prev) => ({ point, tick: (prev?.tick ?? 0) + 1 }));
+            }}
+          />
         ))}
+        {model && !real && layers.dim && portal && <DimLines lines={model.dimLines} portal={portal} />}
+        {!real &&
+          portal &&
+          model?.roomLabels.map((label) => (
+            <Html key={label.text} portal={portal} position={[label.at[0] * M, 0.02, label.at[1] * M]} center className="room-label" zIndexRange={[5, 0]}>
+              {label.text}
+            </Html>
+          ))}
+        {tracing && <PathTracer onStatus={props.onPathTrace} />}
       </Canvas>
       <div ref={tooltip} className="tooltip" hidden={!hoverName}>
         {hoverName}

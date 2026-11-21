@@ -6,6 +6,7 @@ export function ItemInfo({ item }: { item: Item }) {
     <>
       <h2>{item.name}</h2>
       <p className="muted">{LAYERS.find((l) => l.id === item.layer)?.label}</p>
+      {item.added && <p className="notice">상식 보완 품목이다. 도면에 없다. 위치와 크기는 모두 가정이다.</p>}
       {item.note && (
         <>
           <h3>도면 주기</h3>
@@ -53,9 +54,16 @@ export function SheetInfo({ sheet }: { sheet: Sheet }) {
                 </td>
               </tr>
               <tr>
-                <th>모델 품목 수</th>
-                <td>{sheet.model.items.length}</td>
+                <th>도면 근거 품목 수</th>
+                <td>{sheet.model.items.filter((item) => !item.added).length}</td>
                 <td />
+              </tr>
+              <tr>
+                <th>상식 보완 품목 수</th>
+                <td>{sheet.model.items.filter((item) => item.added).length}</td>
+                <td>
+                  <span className="badge assumed">가정</span>
+                </td>
               </tr>
             </tbody>
           </table>

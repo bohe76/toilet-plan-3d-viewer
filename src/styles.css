@@ -39,6 +39,18 @@ p { margin: 4px 0; line-height: 1.5; }
 .stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; }
 .viewport { position: absolute; inset: 0; }
 .toolbar { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 4px; }
+.segmented { display: flex; }
+.segmented button { flex: 1; border-radius: 0; }
+.segmented button:first-child { border-radius: 4px 0 0 4px; }
+.segmented button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+.trace-bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(31, 41, 51, 0.9); color: #fff; padding: 6px 10px; border-radius: 4px; white-space: nowrap; z-index: 10; }
+.trace-bar button { color: #1f2933; }
+.pan-pad { position: absolute; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(2, 30px); grid-template-areas: '. up .' 'left down right'; gap: 2px; }
+.pan-pad button { padding: 0; font-size: 11px; }
+.pan-pad .up { grid-area: up; }
+.pan-pad .left { grid-area: left; }
+.pan-pad .right { grid-area: right; }
+.pan-pad .down { grid-area: down; }
 .tooltip { position: absolute; pointer-events: none; background: rgba(31, 41, 51, 0.9); color: #fff; padding: 3px 8px; border-radius: 3px; white-space: nowrap; z-index: 10; }
 .dim-label, .room-label { pointer-events: none; white-space: nowrap; user-select: none; }
 .dim-label { color: #0b63ce; background: rgba(255, 255, 255, 0.85); padding: 0 3px; font-size: 12px; }
