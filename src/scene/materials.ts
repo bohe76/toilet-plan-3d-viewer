@@ -106,12 +106,27 @@ function createReal(id: MaterialId): THREE.MeshStandardMaterial {
 
 const cache = new Map<string, THREE.MeshStandardMaterial>();
 
-/** 재질은 종류와 강조 상태마다 1개만 만들어서 함께 쓴다. */
-export function realMaterial(id: MaterialId, highlight: Highlight): THREE.MeshStandardMaterial {
-  const key = `${id}|${highlight}`;
+/**
+ * 재질은 종류와 강조 상태마다 1개만 만들어서 함께 쓴다.
+ * tileOrigin은 그 품목만 줄눈 시작점이 다를 때 준다([x, y] mm). 바닥 타일 재질에만 쓴다.
+ */
+export function realMaterial(id: MaterialId, highlight: Highlight, tileOrigin?: [number, number]): THREE.MeshStandardMaterial {
+  const origin = id === 'floorTile' || id === 'smallTile' ? tileOrigin : undefined;
+  const key = `${id}|${highlight}|${origin?.join(',') ?? ''}`;
   let material = cache.get(key);
   if (!material) {
     material = createReal(id);
+    if (origin) {
+      // 질감을 복제해서 시작점만 바꾼다. 그림은 원본과 함께 쓴다.
+      for (const slot of ['map', 'roughnessMap'] as const) {
+        const base = material[slot];
+        if (!base) continue;
+        const texture = base.clone();
+        texture.offset.set((-origin[0] / 1000) * texture.repeat.x, (-origin[1] / 1000) * texture.repeat.y);
+        texture.needsUpdate = true;
+        material[slot] = texture;
+      }
+    }
     if (highlight !== 'none' && id !== 'light' && id !== 'led') {
       material.emissive = new THREE.Color(highlight === 'selected' ? '#ff5a2a' : '#ffb347');
       material.emissiveIntensity = highlight === 'selected' ? 0.45 : 0.22;

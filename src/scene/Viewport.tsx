@@ -115,7 +115,7 @@ function ShapeMesh({ shape, item, cut, real, highlight }: ShapeMeshProps) {
   if (real) {
     const shadow = !NO_SHADOW.has(materialId);
     // 두 모드의 메시에 다른 key를 준다. 같은 메시를 다시 쓰면 material 속성이 빠지면서 기본 재질(흰색)로 돌아간다.
-    return <mesh key="real" geometry={geometry} material={realMaterial(materialId, highlight)} castShadow={shadow} receiveShadow={shadow} />;
+    return <mesh key="real" geometry={geometry} material={realMaterial(materialId, highlight, item.tileOrigin)} castShadow={shadow} receiveShadow={shadow} />;
   }
   const isLight = item.layer === 'light';
   const translucent = materialId === 'glass' || materialId === 'mirror';

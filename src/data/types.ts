@@ -59,6 +59,8 @@ export interface Item {
   facing?: [number, number];
   /** 실사 모드의 광원. 첫 도형의 위치에서 아래로 비춘다. power는 표준 매입등 1개를 1로 본 상대값이다. */
   lamp?: { power: number; shadow?: boolean };
+  /** 이 품목만 타일 줄눈 시작점이 다를 때 적는다. [x, y] mm다. 모델의 tileOrigin보다 앞선다. 한 장에 실이 둘이고 타일 나누기 선이 실마다 다를 때 쓴다. */
+  tileOrigin?: [number, number];
   shapes: Shape[];
   dims: DimValue[];
 }
