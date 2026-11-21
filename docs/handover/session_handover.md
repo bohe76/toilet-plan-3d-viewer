@@ -14,6 +14,7 @@
 | 화살표 키 이동, 이동 버튼 | 구현 완료 |
 | 나머지 7개 탭 모델 | 미작성. **보헤님 지시가 있을 때까지 착수하지 않는다** |
 | typecheck, lint, build | 통과 (2026-11-21) |
+| 공개 배포 (GitHub Pages) | 완료 (2026-11-21). 주소와 재배포 순서는 6절 「공개 배포」 |
 
 보헤님은 아직 실사 모드 화면을 직접 보지 않았다. 화면 확인은 chrome-devtools-headless MCP 캡처로 했다. 캡처는 `work/verify/p6/final_*.png` 에 있다(git 제외).
 
@@ -90,3 +91,15 @@
 - `work/` 는 git에 넣지 않는다. 검수 근거 이미지(`work/verify/p6/`)도 그 안에 있다. 지우면 `prep_plans.py` 와 `measure_plan.py` 로 도면 이미지는 다시 만들 수 있다. 검수 근거 이미지는 다시 만들어야 한다.
 - 줄 끝: 작업 폴더의 파일은 CRLF와 LF가 섞여 있다. git의 autocrlf가 커밋할 때 정리한다. 파일을 고칠 때는 그 파일의 줄 끝을 유지한다.
 - 개발 서버는 세션 종료 때 내린다. `pnpm dev` 로 다시 띄운다.
+
+### 공개 배포 (GitHub Pages)
+
+- 주소: <https://bohe76.github.io/toilet-plan-3d-viewer/> (공개 저장소 `bohe76/toilet-plan-3d-viewer`)
+- 공개 저장소에는 빌드 결과물(`dist/` 의 내용과 `.nojekyll`)만 있다. 소스, 문서, PDF는 없다. 스캔 도면 이미지 8장(`plans/plan_N.jpg`)은 뷰어가 쓰기 때문에 들어 있다.
+- **이 작업 저장소의 `main` 을 공개 저장소에 푸시하지 않는다.** 기록에 PDF와 문서가 있다. 이 작업 저장소에는 원격을 달지 않는다.
+- 다시 배포하는 순서:
+  1. `pnpm build` 를 실행한다.
+  2. 프로젝트 밖의 빈 폴더에 `gh repo clone bohe76/toilet-plan-3d-viewer` 로 공개 저장소를 받는다.
+  3. 받은 폴더에서 `.git` 과 `.nojekyll` 을 뺀 파일을 지운다. `dist/` 의 내용을 복사한다.
+  4. 작성자 메일이 GitHub noreply 주소인지 확인한다(`git config user.email`). 개인 메일이면 그 폴더에서만 noreply 주소로 바꾼다.
+  5. 커밋하고 `git push` 한다. 1 ~ 2분 뒤에 주소에서 확인한다.
