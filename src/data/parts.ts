@@ -79,8 +79,12 @@ export const place = (shapes: Shape[], x: number, y: number, rot: Rot): Shape[] 
   });
 };
 
-/** 양변기. 벽 틀이다. (x, y)는 탱크 뒤 벽면의 변기 중심선 위 점이다. 평면 크기는 연구동 3층 도면의 환산값이다(길이 740, 폭 385, 탱크 폭 396). */
-export const toilet = (key: string | number, x: number, y: number, rot: Rot, over: Over = {}): Item => ({
+/**
+ * 양변기. 벽 틀이다. (x, y)는 탱크 뒤 벽면의 변기 중심선 위 점이다.
+ * 평면 크기의 기본값은 연구동 3층 도면의 환산값이다(길이 740, 폭 385, 탱크 폭 396).
+ * length는 벽면에서 변기 앞 끝까지의 길이다. 도면 기호의 길이가 740과 20mm 넘게 다를 때만 준다. 몸통이 그만큼 벽 쪽으로 온다.
+ */
+export const toilet = (key: string | number, x: number, y: number, rot: Rot, over: Over = {}, length = 740): Item => ({
   id: `toilet-${key}`, layer: 'fixture', name: `양변기 ${key}`,
   remark: '평면 크기는 도면 축척 환산값이다. 높이와 곡면 형상은 가정값이다. 뚜껑을 닫은 상태로 그렸다.',
   shapes: place([
@@ -88,18 +92,18 @@ export const toilet = (key: string | number, x: number, y: number, rot: Rot, ove
     rbox(0, -150, 260, 150, 0, 400, 40),
     // 변기 몸통. 평면은 도면의 타원(길이 550, 폭 385)이다.
     {
-      type: 'lathe', cx: 465, cy: 0, rx: 275, ry: 192,
+      type: 'lathe', cx: length - 275, cy: 0, rx: 275, ry: 192,
       profile: [[0.62, 0], [0.6, 60], [0.66, 190], [0.88, 320], [0.98, 375], [1, 395], [1, 400]],
     },
     // 좌대와 뚜껑
-    { type: 'lathe', cx: 465, cy: 0, rx: 275, ry: 192, profile: [[0, 400], [1, 400], [1, 428], [0.965, 442], [0.6, 449], [0, 450]] },
+    { type: 'lathe', cx: length - 275, cy: 0, rx: 275, ry: 192, profile: [[0, 400], [1, 400], [1, 428], [0.965, 442], [0.6, 449], [0, 450]] },
     // 탱크와 탱크 뚜껑
     rbox(0, -192, 206, 192, 400, 756, 24),
     rbox(0, -198, 219, 198, 752, 780, 10),
     // 물내림 버튼
     cyl(110, 0, 24, 780, 786, 'metal'),
   ], x, y, rot),
-  dims: [dim('길이', 740, 'scaled'), dim('폭', 385, 'scaled'), dim('탱크 폭', 396, 'scaled'), dim('좌면 높이', 400, 'assumed'), dim('탱크 높이', 780, 'assumed')],
+  dims: [dim('길이', length, 'scaled'), dim('폭', 385, 'scaled'), dim('탱크 폭', 396, 'scaled'), dim('좌면 높이', 400, 'assumed'), dim('탱크 높이', 780, 'assumed')],
   ...over,
 });
 
