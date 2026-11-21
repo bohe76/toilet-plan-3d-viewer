@@ -33,7 +33,7 @@ const PILOT_ID = 'research-3f';
 const HQ_DELAY_MS = 1500;
 
 // URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200&dim=1&mode=real&added=0&hq=0
-// hq=0 은 고품질 렌더 스위치를 끈 채로 시작한다. 화면 캡처와 느린 PC에서 쓴다.
+// hq=1 은 고품질 렌더 스위치를 켠 채로 시작한다.
 // added 인자가 없으면 상식 보완 품목은 실사 모드에서만 보인다. added=0 은 두 모드 모두 숨기고, added=1 은 두 모드 모두 보인다.
 const params = new URLSearchParams(window.location.search);
 const initialSheet = sheets.find((s) => s.id === (params.get('sheet') ?? PILOT_ID)) ?? sheets[0];
@@ -62,8 +62,8 @@ export function App() {
   const [fitTick, setFitTick] = useState(0);
   const [pan, setPan] = useState<PanRequest | null>(null);
   const [trace, setTrace] = useState<PathTraceStatus | null>(null);
-  /** 고품질 렌더 스위치. 켜져 있으면 실사 모드의 화면이 멈춘 뒤에 경로 추적을 자동으로 시작한다. 기본은 켜짐이다(보헤님 지시, 2026-11-21). */
-  const [hq, setHq] = useState(params.get('hq') !== '0');
+  /** 고품질 렌더 스위치. 켜져 있으면 실사 모드의 화면이 멈춘 뒤에 경로 추적을 자동으로 시작한다. 기본은 꺼짐이다(보헤님 지시, 2026-11-21). */
+  const [hq, setHq] = useState(params.get('hq') === '1');
   const [dragging, setDragging] = useState(false);
   /** 화면 구성이나 시점이 바뀐 횟수. 바뀔 때마다 고품질 렌더의 시작 대기를 처음부터 다시 센다. */
   const [activity, setActivity] = useState(0);
