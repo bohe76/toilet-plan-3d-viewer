@@ -7,7 +7,7 @@ import { defaultCalibration } from '../data/sheets';
 import type { Bounds, DimLine, Item, LayerId, Shape, Sheet } from '../data/types';
 import { buildGeometry, cutKey, M } from './geometry';
 import { DRAW_COLORS, LAYER_MATERIAL, NO_SHADOW, realMaterial, type Highlight } from './materials';
-import { PathTracer, type PathTraceStatus } from './PathTracer';
+import { GUIDE_ONLY, PathTracer, TRACE_ONLY, type PathTraceStatus } from './PathTracer';
 import { RealStage } from './RealStage';
 
 export type ViewMode = 'top' | 'iso' | 'eye';
@@ -192,7 +192,7 @@ interface ItemGroupProps {
   item: Item;
   cut: number;
   real: boolean;
-  /** 고품질 렌더 중이다. 거울 반사면을 끄고(거울 재질이 직접 반사한다) 강조색을 뺀다(강조색은 빛을 내는 재질이라 렌더에 섞인다). */
+  /** 고품질 렌더 중이다. 거울 반사면을 숨기고(거울 재질이 직접 반사한다) 강조색을 뺀다(강조색은 빛을 내는 재질이라 렌더에 섞인다). */
   tracing: boolean;
   selected: boolean;
   onSelect: (id: string) => void;
@@ -207,7 +207,8 @@ function ItemGroup({ item, cut, real, tracing, selected, onSelect, onHover, onFo
   // 도면 모드의 조명 표시는 절단 높이와 관계없이 천장면에 그린다.
   const itemCut = !real && item.layer === 'light' ? Infinity : cut;
   const highlight: Highlight = tracing ? 'none' : selected ? 'selected' : hovered ? 'hover' : 'none';
-  const mirrored = real && !tracing && item.facing !== undefined;
+  const mirrored = real && item.facing !== undefined;
+  const shapes = item.shapes.map((shape, i) => <ShapeMesh key={i} shape={shape} item={item} cut={itemCut} real={real} highlight={highlight} />);
   return (
     <group
       onPointerOver={(e) => {
@@ -231,9 +232,15 @@ function ItemGroup({ item, cut, real, tracing, selected, onSelect, onHover, onFo
       }}
     >
       {mirrored ? (
-        <MirrorSurface item={item} cut={itemCut} />
+        <>
+          {/* 고품질 렌더 중에는 반사면을 숨긴 채로 남긴다. 노이즈 제거 필터의 길잡이 화면을 그릴 때만 켠다(PathTracer). */}
+          <group name={GUIDE_ONLY} visible={!tracing}>
+            <MirrorSurface item={item} cut={itemCut} />
+          </group>
+          {tracing && <group name={TRACE_ONLY}>{shapes}</group>}
+        </>
       ) : (
-        item.shapes.map((shape, i) => <ShapeMesh key={i} shape={shape} item={item} cut={itemCut} real={real} highlight={highlight} />)
+        shapes
       )}
     </group>
   );

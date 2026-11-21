@@ -43,11 +43,16 @@ const SHOW_SAMPLES = 16;
  * 섞는 값은 「경로 추적 값 ÷ 길잡이 값」(빛의 비율)이다. 섞은 뒤에 길잡이 값을 다시 곱한다.
  * 그래서 타일 줄눈, 나뭇결, 물체 윤곽은 길잡이에서 그대로 온다. 빛과 그림자의 분포는 경로 추적에서 온다.
  * 표본이 쌓일수록 섞는 반경을 줄인다. 표본이 충분하면 경로 추적 화면 그대로가 된다.
+ * 가로로 한 번, 세로로 한 번 나눠서 섞는다. 한 번에 섞으면 탭이 (2 × 반경 + 1)² 개라서 내장 그래픽에서 그리기 1번이 0.7초를 넘는다.
  * 라이브러리의 DenoiseMaterial 은 쓰지 않는다. 그 필터는 경로 추적 화면끼리 비교해서, 점이 심하면 섞지 않는다(표본 4개 화면으로 확인).
  */
 const DENOISE = {
-  /** 화면을 처음 내놓을 때(표본 SHOW_SAMPLES 개) 섞는 반경(화소). 표본 수의 제곱근에 반비례해서 줄어든다 */
-  radius: 8,
+  /**
+   * 화면을 처음 내놓을 때(표본 SHOW_SAMPLES 개) 섞는 반경(화소). 표본 수의 제곱근에 반비례해서 줄어든다.
+   * 8에서는 벽에 잔 얼룩이 남는다. 16과 24에서는 구름 모양의 큰 얼룩이 남는다. 32에서 사라진다.
+   * 48은 창 옆 벽의 음영까지 지운다(표본 16개 화면으로 확인, 2026-11-21).
+   */
+  radius: 32,
   /** 반경의 하한. 이보다 작으면 필터가 하는 일이 없다 */
   minRadius: 1,
   /** 길잡이에서 같은 면으로 보는 색 차이. 크면 더 넓게 섞고 경계가 흐려진다 */
@@ -67,6 +72,10 @@ const DENOISE_VERTEX = /* glsl */ `
 const DENOISE_FRAGMENT = /* glsl */ `
   uniform sampler2D map;
   uniform sampler2D guide;
+  // 섞는 방향. 가로는 (1, 0), 세로는 (0, 1)
+  uniform vec2 direction;
+  // 첫 번째(가로)다. map 은 경로 추적 화면이다. 두 번째(세로)의 map 은 첫 번째의 결과(빛의 비율)다.
+  uniform bool first;
   uniform float radius;
   uniform float guideSigma;
   uniform float clampValue;
@@ -81,29 +90,35 @@ const DENOISE_FRAGMENT = /* glsl */ `
   }
 
   void main() {
-    vec2 texel = 1.0 / vec2(textureSize(map, 0));
+    vec2 texel = direction / vec2(textureSize(guide, 0));
     vec3 base = texture2D(guide, vUv).rgb;
     vec3 center = squash(base);
     float spatial = 0.5 * radius * radius;
     float range = 2.0 * guideSigma * guideSigma;
+    float reach = ceil(radius);
     vec3 sum = vec3(0.0);
     float total = 0.0;
-    for (float y = -radius; y <= radius; y++) {
-      for (float x = -radius; x <= radius; x++) {
-        vec2 d = vec2(x, y);
-        vec2 uv = vUv + d * texel;
-        vec3 g = texture2D(guide, uv).rgb;
-        vec3 dg = squash(g) - center;
-        float w = exp(-dot(d, d) / spatial - dot(dg, dg) / range);
-        sum += w * min(texture2D(map, uv).rgb, vec3(clampValue)) / (g + EPSILON);
-        total += w;
-      }
+    for (float i = -reach; i <= reach; i++) {
+      vec2 uv = vUv + i * texel;
+      vec3 g = texture2D(guide, uv).rgb;
+      vec3 dg = squash(g) - center;
+      float w = exp(-i * i / spatial - dot(dg, dg) / range);
+      vec3 value = texture2D(map, uv).rgb;
+      if (first) value = min(value, vec3(clampValue)) / (g + EPSILON);
+      sum += w * value;
+      total += w;
     }
-    gl_FragColor = vec4((base + EPSILON) * sum / total, 1.0);
+    vec3 ratio = sum / total;
+    gl_FragColor = vec4(first ? ratio : (base + EPSILON) * ratio, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;
+
+/** 길잡이 화면을 그릴 때만 켜는 물체의 이름(거울 반사면). 경로 추적은 숨긴 물체를 건너뛴다. */
+export const GUIDE_ONLY = 'guide-only';
+/** 경로 추적에만 쓰는 물체의 이름(거울 상자). 길잡이 화면을 그릴 때는 숨긴다. */
+export const TRACE_ONLY = 'trace-only';
 
 /**
  * 렌더러마다 경로 추적기를 1개만 만들어 다시 쓴다.
@@ -138,6 +153,7 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
     let pathTracer: WebGLPathTracer | null = null;
     let sky: GradientEquirectTexture | null = null;
     let guide: THREE.WebGLRenderTarget | null = null;
+    let ratio: THREE.WebGLRenderTarget | null = null;
     const fail = (message: string) => {
       tracer.current = null;
       // 컨텍스트가 사라지면 경로 추적기의 GPU 자원도 사라진다. 다음에는 새로 만든다.
@@ -177,11 +193,25 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
         const width = Math.floor(size.x * pathTracer.renderScale);
         const height = Math.floor(size.y * pathTracer.renderScale);
         guide = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType });
+        // 길잡이 화면에서는 거울 반사면을 켠다. 반사면이 없으면 거울 안쪽이 단색이라서 필터가 거울 속 모습을 뭉갠다.
+        const showGuideOnly = (on: boolean) =>
+          scene.traverse((object) => {
+            if (object.name === GUIDE_ONLY) object.visible = on;
+            else if (object.name === TRACE_ONLY) object.visible = !on;
+          });
         const previousTarget = gl.getRenderTarget();
-        gl.setRenderTarget(guide);
-        gl.clear();
-        gl.render(scene, camera);
-        gl.setRenderTarget(previousTarget);
+        showGuideOnly(true);
+        try {
+          gl.setRenderTarget(guide);
+          gl.clear();
+          gl.render(scene, camera);
+        } finally {
+          gl.setRenderTarget(previousTarget);
+          showGuideOnly(false);
+        }
+        // 가로로 섞은 결과(빛의 비율)를 담는 중간 화면
+        const between = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType });
+        ratio = between;
         // 화면에 내놓을 때 노이즈 제거 필터를 거친다.
         let denoise = denoisers.get(gl);
         if (!denoise) {
@@ -189,6 +219,8 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
             uniforms: {
               map: { value: null },
               guide: { value: null },
+              direction: { value: new THREE.Vector2(1, 0) },
+              first: { value: true },
               radius: { value: DENOISE.radius },
               guideSigma: { value: DENOISE.guideSigma },
               clampValue: { value: DENOISE.clamp },
@@ -205,17 +237,30 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
         const { quad, material } = denoise;
         material.uniforms.guide.value = guide.texture;
         shown.current = -1;
+        /** 경로 추적 화면에 필터를 걸어서 지금의 렌더 대상에 그린다. 가로로 섞어서 중간 화면에 담고, 그것을 세로로 섞는다. */
+        const filter = (source: THREE.Texture, renderer: THREE.WebGLRenderer, radius: number) => {
+          const output = renderer.getRenderTarget();
+          const autoClear = renderer.autoClear;
+          renderer.autoClear = false;
+          material.uniforms.radius.value = radius;
+          material.uniforms.map.value = source;
+          material.uniforms.direction.value.set(1, 0);
+          material.uniforms.first.value = true;
+          renderer.setRenderTarget(between);
+          quad.render(renderer);
+          material.uniforms.map.value = between.texture;
+          material.uniforms.direction.value.set(0, 1);
+          material.uniforms.first.value = false;
+          renderer.setRenderTarget(output);
+          quad.render(renderer);
+          renderer.autoClear = autoClear;
+        };
         pathTracer.renderToCanvasCallback = (target, renderer) => {
           // 표본 1개를 마칠 때만 다시 그린다. 그 사이에는 직전 화면이 남아 있다.
           const whole = Math.floor(pathTracer?.samples ?? 0);
           if (whole === shown.current) return;
           shown.current = whole;
-          material.uniforms.map.value = target.texture;
-          material.uniforms.radius.value = THREE.MathUtils.clamp(DENOISE.radius * Math.sqrt(SHOW_SAMPLES / Math.max(whole, 1)), DENOISE.minRadius, DENOISE.radius);
-          const autoClear = renderer.autoClear;
-          renderer.autoClear = false;
-          quad.render(renderer);
-          renderer.autoClear = autoClear;
+          filter(target.texture, renderer, THREE.MathUtils.clamp(DENOISE.radius * Math.sqrt(SHOW_SAMPLES / Math.max(whole, 1)), DENOISE.minRadius, DENOISE.radius));
         };
         pathTracer.setScene(scene, camera);
         reportedAt.current = 0;
@@ -244,6 +289,7 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
       }
       sky?.dispose();
       guide?.dispose();
+      ratio?.dispose();
       scene.environment = previousEnvironment;
       scene.environmentIntensity = previousIntensity;
       gl.toneMapping = previousToneMapping;
