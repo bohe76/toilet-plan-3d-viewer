@@ -92,9 +92,9 @@ function sheetBounds(sheet: Sheet): Bounds {
   const cal = sheet.calibration ?? defaultCalibration;
   return {
     x0: -cal.originPx[0] * cal.mmPerPx,
-    y0: -cal.originPx[1] * cal.mmPerPx,
+    y0: -cal.originPx[1] * (cal.mmPerPxY ?? cal.mmPerPx),
     x1: (cal.workSize[0] - cal.originPx[0]) * cal.mmPerPx,
-    y1: (cal.workSize[1] - cal.originPx[1]) * cal.mmPerPx,
+    y1: (cal.workSize[1] - cal.originPx[1]) * (cal.mmPerPxY ?? cal.mmPerPx),
   };
 }
 
@@ -276,9 +276,10 @@ interface FloorProps {
 function Floor({ sheet, real, underlayVisible, underlayOpacity, onCursor, onSelect, onFit }: FloorProps) {
   const cal = sheet.calibration ?? defaultCalibration;
   const width = cal.workSize[0] * cal.mmPerPx * M;
-  const depth = cal.workSize[1] * cal.mmPerPx * M;
+  const mmPerPxY = cal.mmPerPxY ?? cal.mmPerPx;
+  const depth = cal.workSize[1] * mmPerPxY * M;
   const cx = (cal.workSize[0] / 2 - cal.originPx[0]) * cal.mmPerPx * M;
-  const cz = (cal.workSize[1] / 2 - cal.originPx[1]) * cal.mmPerPx * M;
+  const cz = (cal.workSize[1] / 2 - cal.originPx[1]) * mmPerPxY * M;
   const handlers = {
     onPointerMove: (e: { point: THREE.Vector3 }) => onCursor(e.point.x / M, e.point.z / M),
     onClick: () => onSelect(null),

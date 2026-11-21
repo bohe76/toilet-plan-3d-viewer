@@ -19,8 +19,8 @@ export const COUNTER = 820;
 export const BASIN_TOP = COUNTER + 12;
 
 export type Rot = 0 | 90 | 180 | 270;
-/** 부품이 만든 품목의 글자 항목을 탭에서 바꿀 때 쓴다. note는 도면 주기 원문만 적는다. */
-export type Over = Partial<Pick<Item, 'name' | 'note' | 'remark'>>;
+/** 부품이 만든 품목의 id와 글자 항목을 탭에서 바꿀 때 쓴다. note는 도면 주기 원문만 적는다. */
+export type Over = Partial<Pick<Item, 'id' | 'name' | 'note' | 'remark'>>;
 
 const COS: Record<Rot, number> = { 0: 1, 90: 0, 180: -1, 270: 0 };
 const SIN: Record<Rot, number> = { 0: 0, 90: 1, 180: 0, 270: -1 };
@@ -166,10 +166,10 @@ export const urinal = (key: string | number, x: number, y: number, rot: Rot, wid
   ...over,
 });
 
-/** 바닥 배수구. (cx, cy)는 기호 중심이다. */
-export const floorDrain = (id: string, cx: number, cy: number): Item => ({
+/** 바닥 배수구. (cx, cy)는 기호 중심이다. z는 그 자리의 바닥 높이다. 구배 바닥(pan)의 낮은 점에 둘 때 -drop을 준다. */
+export const floorDrain = (id: string, cx: number, cy: number, z = 0): Item => ({
   id, layer: 'fixture', name: '바닥 배수구', note: 'Ø75 F.D', material: 'metal',
-  shapes: [box(cx - 100, cy - 100, cx + 100, cy + 100, 0, 6)],
+  shapes: [box(cx - 100, cy - 100, cx + 100, cy + 100, z, z + 6)],
   dims: [dim('관경', 'Ø75', 'drawn'), dim('위치', '선분 검출값', 'scaled'), dim('기호 크기', '약 200 x 200', 'scaled')],
 });
 

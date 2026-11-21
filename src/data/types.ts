@@ -74,6 +74,8 @@ export interface Calibration {
   workSize: [number, number];
   originPx: [number, number];
   mmPerPx: number;
+  /** 세로 축척. 스캔의 가로와 세로 축척이 다를 때만 적는다. 없으면 mmPerPx와 같다. */
+  mmPerPxY?: number;
 }
 
 export interface Bounds {
