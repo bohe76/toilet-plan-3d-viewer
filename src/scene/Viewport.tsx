@@ -120,8 +120,10 @@ function ShapeMesh({ shape, item, cut, real, highlight }: ShapeMeshProps) {
   const isLight = item.layer === 'light';
   const translucent = materialId === 'glass' || materialId === 'mirror';
   const color = highlight === 'selected' ? '#ff6b3d' : highlight === 'hover' ? '#ffc56e' : DRAW_COLORS[materialId];
+  // 도면 모드에는 바닥이 없고 스캔 도면이 높이 0에 깔린다. 바닥 아래에 있는 도형(구배 바닥의 배수구)은 도면 위로 올려서 그린다.
+  const lift = 'z1' in shape && shape.z1 <= 0 ? (6 - shape.z1) * M : 0;
   return (
-    <mesh key="plan" geometry={geometry}>
+    <mesh key="plan" geometry={geometry} position-y={lift}>
       <meshStandardMaterial
         color={color}
         roughness={0.85}
