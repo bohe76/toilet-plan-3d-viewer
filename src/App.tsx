@@ -92,9 +92,29 @@ export function App() {
   }, []);
 
   const onTrace = useCallback((status: PathTraceStatus) => {
-    setTrace(status);
+    // 렌더를 끝낸 뒤에 늦게 온 진행 보고는 버린다. 받아 주면 끝낸 렌더가 되살아난다.
+    setTrace((prev) => (prev === null && status.state !== 'preparing' ? prev : status));
     // 오류가 나면 스위치를 끈다. 켜 두면 화면을 움직일 때마다 같은 오류를 되풀이한다.
     if (status.state === 'error') setHq(false);
+  }, []);
+
+  /** 지금 고품질 렌더 중인지. 매 프레임 불리는 onCameraChange가 상태를 읽지 않고 확인하는 데 쓴다. */
+  const tracingRef = useRef(false);
+  useEffect(() => {
+    tracingRef.current = trace !== null;
+  }, [trace]);
+
+  // 시점이나 캔버스 크기가 실제로 바뀌었을 때 불린다. 드래그하는 동안 매 프레임 불리므로 렌더 중일 때만 상태를 바꾼다.
+  const onCameraChange = useCallback(() => {
+    if (!tracingRef.current) return;
+    tracingRef.current = false;
+    stopTrace();
+  }, [stopTrace]);
+
+  const onDrag = useCallback((active: boolean) => {
+    setDragging(active);
+    // 손을 떼면 시작 대기를 다시 센다. 렌더는 건드리지 않는다. 움직임 없는 클릭이 완료된 렌더를 버리지 않게 한다.
+    if (!active) setActivity((n) => n + 1);
   }, []);
 
   const select = useCallback(
@@ -121,6 +141,8 @@ export function App() {
     const next = sheets.find((s) => s.id === id);
     if (!next) return;
     stopTrace();
+    // 탭이나 뷰를 바꾸면 카메라 조작기를 새로 만든다. 누르고 있던 드래그의 끝 신호가 오지 않는다.
+    setDragging(false);
     setActiveId(id);
     setSelectedId(null);
     setCutHeight(DEFAULT_CUT);
@@ -148,17 +170,21 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Alt+←, Ctrl+F 같은 브라우저 단축키는 그대로 둔다.
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
       const arrow = ARROWS[e.key];
       if (arrow) {
         // 원본 도면을 볼 때는 화면을 옮기지 않는다.
         // Tab 키로 슬라이더에 들어가 있으면 화살표는 슬라이더 값을 바꾼다.
         if (originalOpen) return;
-        // Alt+← 같은 브라우저 단축키는 그대로 둔다.
-        if (e.altKey || e.ctrlKey || e.metaKey) return;
         if (e.target instanceof HTMLInputElement && e.target.type === 'range') return;
         e.preventDefault();
         move(arrow[0], arrow[1], e.shiftKey);
-      } else if (e.key >= '1' && e.key <= '8') selectSheet(sheets[Number(e.key) - 1].id);
+      } else if (e.key >= '1' && e.key <= '8') {
+        // 지금 탭의 번호를 누르면 아무것도 하지 않는다. 다시 고르면 절단 높이와 렌더가 초기화된다.
+        const id = sheets[Number(e.key) - 1].id;
+        if (id !== activeId) selectSheet(id);
+      }
       else if (e.key === 'f' || e.key === 'F') fit();
       else if (e.key === 'Escape') {
         // 고품질 렌더 중의 Esc는 스위치를 끈다. 원본 도면이 열려 있으면 그것만 닫는다.
@@ -169,7 +195,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectSheet, fit, move, originalOpen, tracing, turnOffHq]);
+  }, [selectSheet, fit, move, originalOpen, tracing, turnOffHq, activeId]);
 
   return (
     <div className="app">
@@ -285,8 +311,8 @@ export function App() {
           pan={pan}
           pathTrace={tracing}
           onPathTrace={onTrace}
-          onInterrupt={stopTrace}
-          onDrag={setDragging}
+          onInterrupt={onCameraChange}
+          onDrag={onDrag}
           onSelect={select}
           onCursor={showCursor}
           onFit={fit}
@@ -299,6 +325,7 @@ export function App() {
               disabled={v.id === 'eye' && !sheet.model}
               onClick={() => {
                 stopTrace();
+                setDragging(false);
                 setView(v.id);
               }}
             >
@@ -347,7 +374,15 @@ export function App() {
       <aside className="panel right">
         {selected ? <ItemInfo item={selected} /> : <SheetInfo sheet={sheet} />}
         <h3>원본 도면</h3>
-        <button className="thumb" onClick={() => setOriginalOpen(true)} title="원본 도면 보기">
+        <button
+          className="thumb"
+          title="원본 도면 보기"
+          onClick={() => {
+            // 원본 도면이 화면을 덮는 동안에는 고품질 렌더를 돌리지 않는다.
+            stopTrace();
+            setOriginalOpen(true);
+          }}
+        >
           <img src={sheet.image} alt={sheet.title} />
         </button>
       </aside>

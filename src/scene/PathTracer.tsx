@@ -100,6 +100,12 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
         tracer.current = pathTracer;
         invalidate();
       } catch (error) {
+        // 만들다 만 경로 추적기는 버린다. fail()이 목록에서 빼므로 다음에는 새로 만든다.
+        try {
+          pathTracer?.dispose();
+        } catch {
+          // 이미 망가진 상태다. 해제 실패는 무시한다.
+        }
         fail(error instanceof Error ? error.message : String(error));
       }
     }, 50);

@@ -38,7 +38,7 @@ export interface ViewportProps {
   /** 고품질 렌더(경로 추적)를 켠다. 실사 모드에서만 쓴다. */
   pathTrace: boolean;
   onPathTrace: (status: PathTraceStatus) => void;
-  /** 시점을 바꾸는 조작이 있었다. 고품질 렌더를 끝내게 한다. */
+  /** 시점이나 화면 크기가 실제로 바뀌었다. 고품질 렌더 중이면 끝내게 한다. 드래그하는 동안 매 프레임 불린다. */
   onInterrupt: () => void;
   /** 마우스로 시점을 움직이는 중인지 알린다. */
   onDrag: (active: boolean) => void;
@@ -349,6 +349,16 @@ function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag }: Ca
   const handledFocus = useRef(0);
   const handledPan = useRef(pan?.tick ?? 0);
 
+  // 캔버스 크기가 바뀌면 그리던 고품질 렌더는 못 쓴다(완료 화면은 지워지고, 진행 중인 화면은 비율이 어긋난다). 끝내고 다시 시작하게 한다.
+  const width = useThree((s) => s.size.width);
+  const height = useThree((s) => s.size.height);
+  const dpr = useThree((s) => s.viewport.dpr);
+  const sized = useRef(false);
+  useEffect(() => {
+    if (sized.current) onInterrupt();
+    sized.current = true;
+  }, [width, height, dpr, onInterrupt]);
+
   // 뷰, 탭, 맞춤 요청이 바뀌면 카메라를 기본 위치로 옮긴다.
   useLayoutEffect(() => {
     const ctl = controls.current;
@@ -419,15 +429,10 @@ function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag }: Ca
       ref={controls}
       makeDefault
       zoomToCursor
-      // 시점을 움직이기 시작하면 고품질 렌더를 끝낸다. 손을 떼면 대기 시간을 다시 센다.
-      onStart={() => {
-        onInterrupt();
-        onDrag(true);
-      }}
-      onEnd={() => {
-        onDrag(false);
-        onInterrupt();
-      }}
+      // 시점이 실제로 움직였을 때만 고품질 렌더를 끝낸다. 누르기만 한 클릭은 렌더를 버리지 않는다.
+      onChange={onInterrupt}
+      onStart={() => onDrag(true)}
+      onEnd={() => onDrag(false)}
       enableDamping={false}
       enableRotate={!top}
       maxPolarAngle={top ? Math.PI : Math.PI / 2 - 0.01}
