@@ -1,5 +1,5 @@
 import { Edges, Html, Line, OrbitControls, OrthographicCamera, PerspectiveCamera, useTexture } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
@@ -339,15 +339,27 @@ interface CameraRigProps {
   pan: PanRequest | null;
   onInterrupt: () => void;
   onDrag: (active: boolean) => void;
+  /** 카메라가 천장보다 높이 있는지 알린다. 바뀔 때만 부른다. */
+  onAbove: (above: boolean) => void;
 }
 
-function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag }: CameraRigProps) {
+function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAbove }: CameraRigProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const camera = useThree((s) => s.camera);
   const get = useThree((s) => s.get);
   const invalidate = useThree((s) => s.invalidate);
   const handledFocus = useRef(0);
   const handledPan = useRef(pan?.tick ?? 0);
+
+  // 카메라가 천장을 넘나드는 것을 본다. 넘어가면 Viewport가 천장을 숨기거나 다시 그린다.
+  const ceilingY = (sheet.model?.ceilingHeight ?? 0) * M;
+  const wasAbove = useRef<boolean | null>(null);
+  useFrame(({ camera: current }) => {
+    const above = current.position.y > ceilingY;
+    if (above === wasAbove.current) return;
+    wasAbove.current = above;
+    onAbove(above);
+  });
 
   // 캔버스 크기가 바뀌면 그리던 고품질 렌더는 못 쓴다(완료 화면은 지워지고, 진행 중인 화면은 비율이 어긋난다). 끝내고 다시 시작하게 한다.
   const width = useThree((s) => s.size.width);
@@ -455,8 +467,12 @@ export function Viewport(props: ViewportProps) {
   const [overlay, setOverlay] = useState<HTMLDivElement | null>(null);
   const portal = useMemo<RefObject<HTMLElement> | null>(() => (overlay ? { current: overlay } : null), [overlay]);
   const model = sheet.model;
-  // 천장은 그리지 않는다(보헤님 지시, 2026-11-21). 절단 높이를 천장고까지로 묶는다. 천장고 위에 있는 도형은 천장 마감뿐이다.
-  const cut = model ? Math.min(cutHeight, model.ceilingHeight) : cutHeight;
+  // 천장은 실내에서 볼 때만 그린다(보헤님 지시, 2026-11-21). 천장에 조명 기구와 환기구가 달려 있어서 실내에서는 천장이 필요하다.
+  // 카메라가 천장보다 높이 있으면 그리지 않는다. 위에서 실내를 들여다볼 수 있게 한다.
+  // 절단 높이가 천장고보다 낮으면 그 높이에서 자른다. 천장고 위에 있는 도형은 천장 마감뿐이다.
+  const [above, setAbove] = useState(true);
+  const full = model !== undefined && cutHeight >= model.ceilingHeight;
+  const cut = full && !above ? Infinity : cutHeight;
   const real = props.mode === 'real' && model !== undefined;
   const tracing = real && props.pathTrace;
 
@@ -494,7 +510,7 @@ export function Viewport(props: ViewportProps) {
         )}
         <PerspectiveCamera makeDefault={view !== 'top'} fov={45} near={0.05} far={400} />
         <OrthographicCamera makeDefault={view === 'top'} up={[0, 0, -1]} near={0.1} far={400} />
-        <CameraRig sheet={sheet} view={view} fitTick={props.fitTick} focus={focus} pan={props.pan} onInterrupt={props.onInterrupt} onDrag={props.onDrag} />
+        <CameraRig sheet={sheet} view={view} fitTick={props.fitTick} focus={focus} pan={props.pan} onInterrupt={props.onInterrupt} onDrag={props.onDrag} onAbove={setAbove} />
         <Floor
           sheet={sheet}
           real={real}
