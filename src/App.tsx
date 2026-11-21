@@ -304,8 +304,7 @@ export function App() {
           showAdded={showAdded}
           underlayVisible={underlayVisible}
           underlayOpacity={underlayOpacity}
-          // 눈높이 뷰는 천장까지 그린다. 절단 높이가 천장고와 같으면 천장도 그린다.
-          cutHeight={effectiveCut >= ceiling ? Infinity : effectiveCut}
+          cutHeight={effectiveCut}
           selectedId={selectedId}
           fitTick={fitTick}
           pan={pan}

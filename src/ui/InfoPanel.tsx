@@ -27,12 +27,6 @@ export function ItemInfo({ item }: { item: Item }) {
           ))}
         </tbody>
       </table>
-      {item.remark && (
-        <>
-          <h3>판독 메모</h3>
-          <p>{item.remark}</p>
-        </>
-      )}
     </>
   );
 }
