@@ -37,7 +37,7 @@ export const URINAL_YS = [995, 1945, 2895];
 /** 소변기 칸막이 중심 Y. 표기 치수 520과 950 × 3을 따랐다. */
 const URINAL_PARTITIONS = [1470, 2420, 3370];
 
-// 소변기 뒤 띠. 서측 벽면의 점묘 띠(X 103 ~ 271)다. 소변기 뒤판 자리는 비웠다.
+// 소변기 뒤 띠. 서측 벽면의 점묘 띠(X 103 ~ 271)다. 점묘가 소변기 뒤판 안에서도 이어져서 끊지 않았다.
 const CHASE = { x1: 271, y0: 520, y1: 3420, h: 1000 };
 const URINAL_W = 428;
 
@@ -110,13 +110,8 @@ const walls: Item[] = [
   },
   {
     id: 'wall-chase', layer: 'wall', name: '소변기 뒤 띠와 두겁돌', note: 'THK20 화강석 두겁돌 설치 (L=2,900)',
-    remark: '서측 벽면의 점묘 띠다(X 103 ~ 271, 폭 168). 주기의 지시선이 이 띠를 가리킨다. 띠의 길이는 표기 L=2,900을 따랐다(환산 2,904). 띠 높이는 도면에 없다. 1,000으로 가정했고 두겁돌(THK20)을 그 위에 얹었다. 소변기 뒤판이 띠를 가로질러 그려져 있어서 뒤판 자리(폭 428)는 띠를 비웠다(작성자 판단).',
-    shapes: [
-      ...[CHASE.y0, ...URINAL_YS.map((y) => y + URINAL_W / 2)].flatMap((y0, i) => {
-        const y1 = i < URINAL_YS.length ? URINAL_YS[i] - URINAL_W / 2 : CHASE.y1;
-        return [box(WALL.west, y0, CHASE.x1, y1, 0, CHASE.h), box(WALL.west, y0, CHASE.x1, y1, CHASE.h, CHASE.h + 20, 'granite')];
-      }),
-    ],
+    remark: '서측 벽면의 점묘 띠다(X 103 ~ 271, 폭 168). 주기의 지시선이 이 띠를 가리킨다. 띠의 길이는 표기 L=2,900을 따랐다(환산 2,904). 띠 높이는 도면에 없다. 1,000으로 가정했고 두겁돌(THK20)을 그 위에 얹었다. 점묘는 소변기 뒤판 윤곽선 안에서도 이어진다(띠 안쪽 열 x 1991 ~ 2002px의 점 밀도: 뒤판 안 2.9 ~ 6.9, 소변기 사이 1.7 ~ 10.5개/1,000px²). 그래서 띠와 두겁돌을 끊지 않고 한 덩어리로 그렸다. 소변기 부품의 뒤판과 그릇의 벽 쪽 부분은 띠 안에 묻힌다.',
+    shapes: [box(WALL.west, CHASE.y0, CHASE.x1, CHASE.y1, 0, CHASE.h), box(WALL.west, CHASE.y0, CHASE.x1, CHASE.y1, CHASE.h, CHASE.h + 20, 'granite')],
     dims: [dim('길이', 2900, 'drawn'), dim('폭', 168, 'scaled'), dim('두겁돌 두께', 20, 'drawn'), dim('높이', CHASE.h, 'assumed')],
   },
   {
