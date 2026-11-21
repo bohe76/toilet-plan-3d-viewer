@@ -92,6 +92,8 @@ export interface SheetModel {
   isoDir?: [number, number];
   /** 실사 모드에서 창으로 들어오는 자연광의 평면 방향 [x, y]. 없으면 자연광을 넣지 않는다. */
   daylightDir?: [number, number];
+  /** 실사 모드의 타일 줄눈 시작점 [x, y] mm. 도면의 타일 나누기 선 교점 하나를 적는다. 없으면 원점에서 시작한다. */
+  tileOrigin?: { floorTile?: [number, number]; smallTile?: [number, number] };
   items: Item[];
   dimLines: DimLine[];
   roomLabels: { text: string; at: [number, number] }[];
