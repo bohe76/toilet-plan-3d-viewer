@@ -7,18 +7,12 @@
 // 도면의 선 위치(축척 환산)와 표기 치수가 다르면 표기 치수를 따른다.
 // 측정 근거와 판독 메모는 docs/drawings/research_3f_measurements.md 에 있다.
 // 이 파일은 도면에 근거가 있는 품목만 담는다. 도면에 없는 상식 보완 품목은 research_3f_added.ts 에 있다.
-import { box, cyl, dim, rbox, tube } from './shape_helpers';
+// 양변기, 세면기, 수전, 배수구, 칸 문, 가방걸이, 유리선반, 코너 비드의 형상과 가정 높이(SILL, HEAD, GAP, COUNTER)는 parts.ts 에 있다.
+import { COUNTER, GAP, HEAD, PT, SILL, basin, cornerBead, faucet, floorDrain, glassShelf, stallDoor, stallHook, toilet } from './parts';
+import { box, cyl, dim, rbox } from './shape_helpers';
 import type { Calibration, Item, SheetModel } from './types';
 
 export const CH = 2550; // 천장고. 도면 표기 CH 2,550
-export const SILL = 1200; // 창대 높이. 도면에 없다. 가정
-export const HEAD = 2100; // 창·문 상단 높이. 도면에 없다. 가정
-const PT = 12; // 칸막이 두께. 도면 표기 12mm
-export const GAP = 150; // 칸막이 하부 틈. 도면에 없다. 가정
-/** 세면대 상판 윗면 높이. 도면에 없다. 가정. 하부 칸막이 높이 800(도면 표기) 위에 THK20 상판을 얹은 높이다. */
-export const COUNTER = 820;
-/** 세면기 테두리 윗면 높이. 상판 위로 12 올라온다. 가정 */
-const BASIN_TOP = COUNTER + 12;
 
 /** 대변기 칸. north는 칸의 북쪽 면 Y, cy는 양변기 중심 Y, hinge는 문 경첩 Y, south는 남쪽 칸막이 중심 Y다. */
 export const STALLS = [
@@ -119,15 +113,13 @@ const partitions: Item[] = [
   },
 ];
 
-const stallDoor = (n: number, hy: number): Item => ({
-  id: `door-stall-${n}`, layer: 'door', name: `대변기 칸 ${n} 문`, note: '가방걸이 설치',
+const stallDoorText = {
+  note: '가방걸이 설치',
   remark: '도면은 문을 안쪽으로 90도 연 상태로 그렸다. 모델도 같은 상태다. 문 높이는 칸막이 높이를 따랐다. 하부 틈은 가정값이다.',
-  shapes: [{ type: 'leaf', hx: 2496, hy, width: 580, angleDeg: 0, thickness: PT, z0: GAP, z1: 1950 }],
-  dims: [dim('문짝 폭', 580, 'scaled'), dim('높이', 1950, 'assumed'), dim('하부 틈', GAP, 'assumed')],
-});
+};
 
 const doors: Item[] = [
-  ...STALLS.map((s) => stallDoor(s.n, s.hinge)),
+  ...STALLS.map((s) => stallDoor(s.n, 2496, s.hinge, 0, 580, stallDoorText)),
   {
     id: 'door-entrance', layer: 'door', name: '출입문 3/SSD', material: 'steelDoor',
     remark: '도면은 문을 남쪽(바깥)으로 90도 연 상태로 그렸다. 서쪽 문틀(X 2,654 ~ 2,846)은 도면의 외곽만 따랐다. 안쪽 형상은 단순화했다. 문 높이는 가정값이다.',
@@ -152,73 +144,14 @@ const doors: Item[] = [
   },
 ];
 
-// 양변기. 평면 크기(길이 740, 폭 385)와 중심은 도면 환산값이다. 곡면과 높이는 가정이다.
-const toilet = (n: number, cy: number): Item => ({
-  id: `toilet-${n}`, layer: 'fixture', name: `양변기 ${n}`,
-  remark: '평면 크기는 도면 축척 환산값이다. 높이와 곡면 형상은 가정값이다. 뚜껑을 닫은 상태로 그렸다.',
-  shapes: [
-    // 벽 쪽 받침
-    rbox(3640, cy - 150, 3900, cy + 150, 0, 400, 40),
-    // 변기 몸통. 평면은 도면의 타원(길이 550, 폭 385)이다.
-    {
-      type: 'lathe', cx: 3435, cy, rx: 275, ry: 192,
-      profile: [[0.62, 0], [0.6, 60], [0.66, 190], [0.88, 320], [0.98, 375], [1, 395], [1, 400]],
-    },
-    // 좌대와 뚜껑
-    { type: 'lathe', cx: 3435, cy, rx: 275, ry: 192, profile: [[0, 400], [1, 400], [1, 428], [0.965, 442], [0.6, 449], [0, 450]] },
-    // 탱크와 탱크 뚜껑
-    rbox(3694, cy - 192, 3900, cy + 192, 400, 756, 24),
-    rbox(3681, cy - 198, 3900, cy + 198, 752, 780, 10),
-    // 물내림 버튼
-    cyl(3790, cy, 24, 780, 786, 'metal'),
-  ],
-  dims: [dim('길이', 740, 'scaled'), dim('폭', 385, 'scaled'), dim('탱크 폭', 396, 'scaled'), dim('좌면 높이', 400, 'assumed'), dim('탱크 높이', 780, 'assumed')],
-});
-
-// 세면기. 중심과 지름은 도면 환산값이다. 상판에 얹는 형태와 높이는 가정이다.
-const basin = (n: number, cx: number): Item => ({
-  id: `basin-${n}`, layer: 'fixture', name: `세면기 ${n}`,
-  remark: '중심과 지름은 도면 축척 환산값이다. 테두리 높이와 그릇 형상은 가정값이다. 상판에 얹는 형태로 그렸다.',
-  shapes: [
-    {
-      type: 'lathe', cx, cy: 5155, rx: 215, ry: 215,
-      profile: [
-        [0, 690], [0.5, 690], [0.84, 730], [0.92, 800], [0.93, COUNTER], [1, COUNTER], [1, BASIN_TOP - 2], [0.985, BASIN_TOP],
-        [0.86, BASIN_TOP], [0.8, 818], [0.72, 760], [0.5, 715], [0.14, 702], [0, 700],
-      ],
-    },
-    cyl(cx, 5155, 22, 700, 704, 'metal'),
-  ],
-  dims: [dim('지름', 430, 'scaled'), dim('남측 벽면에서 중심까지', 320, 'scaled'), dim('테두리 높이', BASIN_TOP, 'assumed')],
-});
-
-// 수전. 도면의 세면기 기호에 토수구 1개와 손잡이 2개가 그려져 있다.
-const faucet = (n: number, cx: number): Item => ({
-  id: `faucet-${n}`, layer: 'fixture', name: `세면기 수전 ${n}`, material: 'brass',
-  remark: '도면의 세면기 기호에 토수구와 손잡이 2개가 벽 쪽 테두리에 그려져 있다. 형상과 높이는 가정값이다.',
-  shapes: [
-    cyl(cx, 5353, 14, BASIN_TOP, BASIN_TOP + 18),
-    tube([[cx, 5353, BASIN_TOP + 18], [cx, 5353, 930], [cx, 5338, 958], [cx, 5300, 968], [cx, 5262, 956], [cx, 5246, 928]], 10),
-    cyl(cx - 52, 5346, 12, BASIN_TOP, BASIN_TOP + 34),
-    cyl(cx + 52, 5346, 12, BASIN_TOP, BASIN_TOP + 34),
-    tube([[cx - 52, 5346, BASIN_TOP + 38], [cx - 84, 5346, BASIN_TOP + 38]], 5),
-    tube([[cx + 52, 5346, BASIN_TOP + 38], [cx + 84, 5346, BASIN_TOP + 38]], 5),
-  ],
-  dims: [dim('위치', '세면기 테두리의 벽 쪽', 'scaled'), dim('토수구 높이', 928, 'assumed')],
-});
-
-const floorDrain = (id: string, cx: number, cy: number): Item => ({
-  id, layer: 'fixture', name: '바닥 배수구', note: 'Ø75 F.D', material: 'metal',
-  shapes: [box(cx - 100, cy - 100, cx + 100, cy + 100, 0, 6)],
-  dims: [dim('관경', 'Ø75', 'drawn'), dim('위치', '선분 검출값', 'scaled'), dim('기호 크기', '약 200 x 200', 'scaled')],
-});
-
 const fixtures: Item[] = [
-  ...STALLS.map((s) => toilet(s.n, s.cy)),
-  basin(1, 625),
-  basin(2, 1420),
-  faucet(1, 625),
-  faucet(2, 1420),
+  // 양변기는 동측 벽(X 3,900)에 붙어 서쪽을 본다. 평면 크기와 중심은 도면 환산값이다.
+  ...STALLS.map((s) => toilet(s.n, 3900, s.cy, 180)),
+  // 세면기는 남측 벽(Y 5,475)에서 320 떨어져 북쪽을 본다. 도면의 세면기 기호에 토수구 1개와 손잡이 2개가 그려져 있다.
+  basin(1, 625, 5155, '남측 벽면에서 중심까지', 320),
+  basin(2, 1420, 5155, '남측 벽면에서 중심까지', 320),
+  faucet(1, 625, 5155, 270),
+  faucet(2, 1420, 5155, 270),
   {
     id: 'mop-sink', layer: 'fixture', name: '수채기', note: '수채기 신설 (기계설비공사)',
     remark: '평면 크기는 도면 축척 환산값이다. 높이와 안쪽 형상은 가정값이다.',
@@ -233,30 +166,12 @@ const fixtures: Item[] = [
   floorDrain('fd-basin', 984, 4975),
 ];
 
-const glassShelf = (n: number, cy: number): Item => ({
-  id: `glass-shelf-${n}`, layer: 'accessory', name: `유리선반 ${n}`, note: '유리선반 설치 (r=300) (기계설비공사)', material: 'glass',
-  remark: '설치 높이는 가정값이다.',
-  shapes: [{ type: 'quarter', cx: 3900, cy, r: 300, startDeg: 180, z0: 1000, z1: 1008 }],
-  dims: [dim('반지름', 300, 'drawn'), dim('설치 높이', 1000, 'assumed')],
-});
-
+const glassShelfText = { note: '유리선반 설치 (r=300) (기계설비공사)' };
 // 가방걸이. 도면의 대변기 칸 문 3개에 기호가 그려져 있다. 문 안쪽 면(열린 상태에서 남쪽 면)에 달았다.
-const stallHook = (n: number, hy: number): Item => ({
-  id: `hook-stall-${n}`, layer: 'accessory', name: `가방걸이 ${n}`, note: '가방걸이 설치', material: 'brass',
+const stallHookText = {
+  note: '가방걸이 설치',
   remark: '도면의 문 3개에 가방걸이 기호가 그려져 있다. 평면 위치는 도면 환산값이다. 높이와 형상은 가정값이다. 문 안쪽 면에 달았다.',
-  shapes: [
-    tube([[2776, hy + 6, 1650], [2776, hy + 14, 1650]], 16),
-    tube([[2776, hy + 14, 1650], [2776, hy + 38, 1650], [2776, hy + 46, 1672]], 5),
-  ],
-  dims: [dim('경첩에서의 거리', 280, 'scaled'), dim('설치 높이', 1650, 'assumed')],
-});
-
-const cornerBead = (n: number, where: string, shapes: Item['shapes']): Item => ({
-  id: `corner-bead-${n}`, layer: 'accessory', name: `코너 비드 ${n} (${where})`, note: '코너 비드 설치', material: 'metal',
-  remark: '위치는 도면의 지시선이 가리키는 벽 모서리다. 폭, 두께, 높이는 도면에 없다. 가정값이다.',
-  shapes,
-  dims: [dim('위치', where, 'scaled'), dim('날개 폭', 25, 'assumed'), dim('두께', 5, 'assumed'), dim('높이', '바닥에서 천장까지', 'assumed')],
-});
+};
 
 const accessories: Item[] = [
   {
@@ -305,8 +220,8 @@ const accessories: Item[] = [
     dims: [dim('길이', 1794, 'scaled'), dim('깊이', 598, 'scaled'), dim('윗면 높이', COUNTER, 'assumed'), dim('두께', 20, 'assumed')],
   },
   // 유리선반은 칸의 남동 모서리에 있다. 중심 Y는 남쪽 칸막이의 북쪽 면이다.
-  ...STALLS.map((s) => glassShelf(s.n, s.south - PT / 2)),
-  ...STALLS.map((s) => stallHook(s.n, s.hinge)),
+  ...STALLS.map((s) => glassShelf(s.n, 3900, s.south - PT / 2, 180, 300, glassShelfText)),
+  ...STALLS.map((s) => stallHook(s.n, 2496, s.hinge, 0, 1, 280, stallHookText)),
   {
     id: 'threshold', layer: 'accessory', name: '화강석 재료분리대', note: 'THK30 화강석 재료분리대 설치 (W=150)', material: 'granite',
     remark: '두께 30은 석재 두께다. 바닥 위로 드러나는 높이는 도면에 없다. 10으로 가정했다.',
