@@ -150,12 +150,45 @@ export const lowWall = (key: string | number, x: number, y: number, rot: Rot, le
   ...over,
 });
 
-/** 창 위 커텐박스. 벽 틀이다. (x, y)는 창 쪽 벽면 위의 박스 중심이다. top은 박스 윗면(천장고), depth는 벽에서 나온 깊이, height는 박스 높이(가정)다. */
-export const curtainBox = (key: string | number, x: number, y: number, rot: Rot, length: number, top: number, depth = 96, height = 150, over: ExtraOver = {}): Item => ({
-  id: `curtain-box-${key}`, layer: 'accessory', name: `커텐박스 ${key}`, material: 'white',
-  remark: '도면의 점선(위에 있는 것) 범위다. 높이와 단면은 가정이다.',
-  shapes: place([box(0, -length / 2, depth, length / 2, top - height, top)], x, y, rot),
-  dims: [dim('길이', length, 'drawn'), dim('깊이', depth, 'scaled'), dim('높이', height, A)],
+const CURTAIN_RISE = 150; // 커텐박스 홈의 높이. 「"A" 단면상세도」 표기
+const CURTAIN_T = 1.6; // 커텐박스 갈바 판 두께. 「"A" 단면상세도」 표기
+
+/**
+ * 창 위 커텐박스. 연구동 1층·2층 도면의 「"A" 단면상세도」를 따른다.
+ * 천장 아래로 내려온 상자가 아니다. 천장 끝에서 위로 150 올라간 갈바 판(THK1.6)이다. 판과 창 사이는 천장이 없는 홈이다.
+ * 벽 틀이다. (x, y)는 창틀 안쪽 면(상세도의 치수 340이 시작하는 면) 위의 박스 길이 중심이다. rot은 실내 쪽 방향이다.
+ * ceiling은 천장고, front는 창틀 안쪽 면에서 판까지(표기 340), back은 같은 면에서 박스 양 끝의 벽 마감 면까지다(마구리 판이 시작하는 곳).
+ * 판 아래의 턱(천장재 받침)은 상세도 환산값이다. 홈 윗면 위의 표기 150 구간은 천장 속이라서 그리지 않는다.
+ * 그 구간의 가는 선이 판의 고정 날개인지 보 옆면의 마감인지는 상세도로 정할 수 없다. 마구리 판은 평면 점선의 꺾인 끝을 따른 가정이다.
+ */
+export const curtainBox = (key: string | number, x: number, y: number, rot: Rot, length: number, ceiling: number, front: number, back: number, over: ExtraOver = {}): Item => {
+  const l = length / 2;
+  const top = ceiling + CURTAIN_RISE;
+  return {
+    id: `curtain-box-${key}`, layer: 'accessory', name: `커텐박스 ${key}`, material: 'white',
+    remark: '길이는 평면의 점선(위에 있는 것) 범위다. 단면은 「"A" 단면상세도」를 따랐다. 천장 끝에서 위로 150 올라간 갈바 판이다. 판과 창 사이는 천장이 없는 홈이다.',
+    shapes: place([
+      box(front - CURTAIN_T, -l, front, l, ceiling - CURTAIN_T, top),
+      box(front, -l, front + 25, l, ceiling - CURTAIN_T, ceiling),
+      box(back, -l, front - CURTAIN_T, -l + CURTAIN_T, ceiling, top), box(back, l - CURTAIN_T, front - CURTAIN_T, l, ceiling, top),
+    ], x, y, rot),
+    dims: [
+      dim('길이', length, 'drawn'), dim('창틀 안쪽 면에서 판까지', front, 'drawn'), dim('홈 높이 (천장 면에서 창 위 면까지)', CURTAIN_RISE, 'drawn'),
+      dim('판 두께', CURTAIN_T, 'drawn'), dim('홈 윗면 위의 표기 구간 (천장 속, 그리지 않음)', 150, 'drawn'), dim('턱 폭', 25, 'scaled'),
+    ],
+    ...over,
+  };
+};
+
+/**
+ * 커텐박스 홈의 윗면(창 위 면). 「"A" 단면상세도」의 주기 「기존 타일위 포세린타일 마감」이 가리키는 면이다. 천장보다 150 높다.
+ * 틀과 인자는 curtainBox와 같다. 창틀 안쪽 면에서 갈바 판까지 덮는다. 창 폭 밖(박스 양 끝)의 윗면 높이는 상세도에 없다. 같은 높이로 가정한다.
+ */
+export const curtainPocketTop = (key: string | number, x: number, y: number, rot: Rot, length: number, ceiling: number, front: number, over: ExtraOver = {}): Item => ({
+  id: `curtain-pocket-top-${key}`, layer: 'finish', name: `커텐박스 홈 윗면 ${key}`, note: '기존 타일위 포세린타일 마감', material: 'wall',
+  remark: '「"A" 단면상세도」의 주기다. 지시선은 창 위 면(천장보다 150 높은 면)을 가리킨다. 창 폭 밖의 윗면 높이는 상세도에 없다. 같은 높이로 가정했다. 타일 두께는 가정이다.',
+  shapes: place([box(0, -length / 2, front - CURTAIN_T, length / 2, ceiling + CURTAIN_RISE, ceiling + CURTAIN_RISE + 10)], x, y, rot),
+  dims: [dim('천장 면에서 윗면까지', CURTAIN_RISE, 'drawn'), dim('타일 두께', 10, A)],
   ...over,
 });
 
@@ -171,16 +204,16 @@ export const cornerBeadWings = (x: number, y: number, ox: 1 | -1, oy: 1 | -1, z1
 
 /**
  * 창틀(상식 보완). 중심 틀이다. (x, y)는 창의 평면 중심(틀 두께의 중심)이고 rot은 실내 쪽 방향이다.
- * width는 창 폭이다. 틀 폭 45, 깊이 70, 가운데 세로살 1개는 가정이다. 높이는 창대(SILL)에서 창 상단(HEAD)까지다.
+ * width는 창 폭이다. 틀 폭 45, 깊이 70, 가운데 세로살 1개는 가정이다. 높이는 창대(SILL)에서 창 상단(head, 기본값 HEAD)까지다.
  */
-export const windowFrame = (key: string | number, x: number, y: number, rot: Rot, width: number, over: ExtraOver = {}): Item => {
+export const windowFrame = (key: string | number, x: number, y: number, rot: Rot, width: number, over: ExtraOver = {}, head = HEAD): Item => {
   const w = width / 2;
   return {
     id: `window-frame-${key}`, layer: 'wall', name: `창틀 ${key}`, added: true, material: 'bronze',
     shapes: place([
-      box(-35, -w, 35, w, SILL, SILL + 45), box(-35, -w, 35, w, HEAD - 45, HEAD),
-      box(-35, w - 45, 35, w, SILL + 45, HEAD - 45), box(-35, -w, 35, -w + 45, SILL + 45, HEAD - 45),
-      box(-35, -23, 35, 22, SILL + 45, HEAD - 45),
+      box(-35, -w, 35, w, SILL, SILL + 45), box(-35, -w, 35, w, head - 45, head),
+      box(-35, w - 45, 35, w, SILL + 45, head - 45), box(-35, -w, 35, -w + 45, SILL + 45, head - 45),
+      box(-35, -23, 35, 22, SILL + 45, head - 45),
     ], x, y, rot),
     dims: [dim('틀 폭', 45, A), dim('틀 깊이', 70, A)],
     ...over,

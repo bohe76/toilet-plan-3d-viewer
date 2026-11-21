@@ -88,9 +88,9 @@ const doorHardware: Item[] = [
   doorLever('handle-mop', '수채기실 문 손잡이', 2534, 5948, 180, 651),
 ];
 
-/** 창틀(parts_extra.ts). 창(1/CAW)의 양 끝 X를 받는다. 틀 두께 중심은 Y −255(−290 ~ −220)다. */
+/** 창틀(parts_extra.ts). 창(1/CAW)의 양 끝 X를 받는다. 틀 두께 중심은 Y −238(−273 ~ −203)이다. 안쪽 면은 창대석 바깥 끝(Y −203)이다. 「"A" 단면상세도」의 340이 이 면에서 시작한다. 머리는 「"A" 단면상세도」의 창 위 면(천장고 + 150)에 붙는다. */
 const frame = (key: 'f' | 'm', x0: number, x1: number): Item =>
-  windowFrame(key, (x0 + x1) / 2, -255, 90, x1 - x0, { name: `창틀 (${key === 'f' ? '여' : '남'})` });
+  windowFrame(key, (x0 + x1) / 2, -238, 90, x1 - x0, { name: `창틀 (${key === 'f' ? '여' : '남'})` }, CH + 150);
 
 
 const roomItems: Item[] = [

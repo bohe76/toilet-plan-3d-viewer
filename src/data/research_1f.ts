@@ -13,7 +13,7 @@
 // 여·남 두 실을 한 모델에 넣었다. 실별 품목의 id와 부품 key에 f(여), m(남)을 붙였다.
 import { COUNTER, GAP, HEAD, PT, SILL, basin, cornerBead, faucet, floorDrain, glassShelf, stallDoor, stallHook, toilet, urinal } from './parts';
 import {
-  GRAB_REMARK, babySeat, backrest, cornerBeadWings, curtainBox, emergencyBell, foldGrabBar, lowWall, slidingDoor, urinalChase, urinalGrabBar, urinalScreens, wallGrabBar,
+  GRAB_REMARK, babySeat, backrest, cornerBeadWings, curtainBox, curtainPocketTop, emergencyBell, foldGrabBar, lowWall, slidingDoor, urinalChase, urinalGrabBar, urinalScreens, wallGrabBar,
 } from './parts_extra';
 import { box, cyl, dim, rbox } from './shape_helpers';
 import type { Calibration, Item, SheetModel } from './types';
@@ -54,6 +54,12 @@ const MID = { y0: 5547, y1: 5702 };
 const CAP = { y0: MID.y0 - 1500 - 180, y1: MID.y0 - 1500 };
 // 창 사이 기둥의 서쪽 면 X(x 2239)와 남쪽 면 Y(y 1082)
 const PIER = { x0: 3043, y1: 496 };
+// 「"A" 단면상세도」의 커텐박스. 창 위 면은 천장보다 150 높다(표기 150). 창 상단과 창틀 머리는 그 면에 붙는다.
+const WIN_TOP = CH + 150;
+/** 커텐박스: y는 창틀 안쪽 면(창대석 바깥 끝, 표기 340의 시작), front는 그 면에서 갈바 판까지(표기 340), 여·남은 박스 양 끝 X(평면 점선)다. */
+const CURTAIN = { y: -203, front: 340, f: [1738, 1738 + 1300], m: [C_E, 4860] } as const;
+/** 갈바 판의 실내 쪽 면 Y. 천장은 여기서 끝난다. */
+const CURTAIN_FACE = CURTAIN.y + CURTAIN.front;
 
 const walls: Item[] = [
   {
@@ -70,28 +76,31 @@ const walls: Item[] = [
   },
   {
     id: 'wall-north', layer: 'wall', name: '북측 벽',
-    remark: '창 구간의 창대 높이와 창 상단 높이는 도면에 없다. 가정값이다. 창 구간의 안쪽 면은 창대석 안쪽 끝(Y −2)이다. 여 창 동쪽 끝과 기둥 사이(X 2,942 ~ 3,043)의 벽 면은 대변기 칸 구간과 같은 y 956(Y −52)이다. 서측 벽 밖으로 뻗는 북측 외벽(X −360 ~ −101)과 그 서쪽의 창은 방 밖이라서 넣지 않았다.',
+    remark: '창대 높이는 도면에 없다. 가정값이다. 창 상단은 「"A" 단면상세도」의 커텐박스 홈 윗면(천장보다 150 높은 면, 2,650)에서 끝냈다. 상세도의 창틀 머리는 보 아래 면(약 2,666)에 붙는다. 150은 천장 면에서 홈 윗면까지의 표기다. 그래서 창 폭 구간에는 천장고 아래에 창 위 벽이 없다. 창 위에는 상세도의 보 아래 끝(홈 윗면 위 18, 상세도 환산값)까지만 그렸다. 커텐박스 길이 구간 가운데 창 폭 밖은 홈의 뒤가 뚫려 보이지 않게 벽을 홈 윗면(2,650)까지 올렸다. 창 구간의 안쪽 면은 창대석 안쪽 끝(Y −2)이다. 여 창 동쪽 끝과 기둥 사이(X 2,942 ~ 3,043)의 벽 면은 대변기 칸 구간과 같은 y 956(Y −52)이다. 서측 벽 밖으로 뻗는 북측 외벽(X −360 ~ −101)과 그 서쪽의 창은 방 밖이라서 넣지 않았다.',
     shapes: [
       // 여 대변기 칸 구간, 남 대변기 칸 구간
       box(W_IN, -354, 1840, N_IN, 0, CH), box(4652, -354, E_IN, N_IN, 0, CH),
-      // 창 구간 (창대 아래, 창 위)
-      box(1840, -354, 2942, -2, 0, SILL - 20), box(1840, -354, 2942, -2, HEAD, CH),
-      box(C_E, -354, 4652, -2, 0, SILL - 20), box(C_E, -354, 4652, -2, HEAD, CH),
+      // 창 구간 (창대 아래, 창 위의 보 아래 끝)
+      box(1840, -354, 2942, -2, 0, SILL - 20), box(1840, -354, 2942, CURTAIN.y, WIN_TOP, WIN_TOP + 18),
+      box(C_E, -354, 4652, -2, 0, SILL - 20), box(C_E, -354, 4652, CURTAIN.y, WIN_TOP, WIN_TOP + 18),
       // 두 창 사이
       box(2942, -354, C_E, N_IN, 0, CH),
+      // 커텐박스 길이 구간 가운데 창 폭 밖 (천장고에서 홈 윗면까지)
+      box(CURTAIN.f[0], -354, 1840, N_IN, CH, WIN_TOP), box(2942, -354, CURTAIN.f[1], N_IN, CH, WIN_TOP), box(4652, -354, CURTAIN.m[1], N_IN, CH, WIN_TOP),
     ],
-    dims: [dim('두께 (대변기 칸 구간)', 302, 'scaled'), dim('창대 높이', SILL, 'assumed'), dim('창 상단 높이', HEAD, 'assumed')],
+    dims: [dim('두께 (대변기 칸 구간)', 302, 'scaled'), dim('창대 높이', SILL, 'assumed'), dim('창 상단 높이 (홈 윗면, 천장고 + 150)', WIN_TOP, 'scaled')],
   },
   {
     id: 'window-f', layer: 'wall', name: '창호 1/CAW (여)', material: 'glass',
-    shapes: [box(1840, -264, 2942, -244, SILL, HEAD)],
-    dims: [dim('폭', 1102, 'scaled'), dim('높이', HEAD - SILL, 'assumed')],
+    remark: '상세도에서 창틀 머리는 보 아래 면(y 581 ~ 584, 약 2,666)에 붙는다. 모델은 홈 윗면 높이 2,650에서 끝냈다. 150은 천장 면에서 홈 윗면까지의 표기다. 창대 높이는 가정이다.',
+    shapes: [box(1840, -264, 2942, -244, SILL, WIN_TOP)],
+    dims: [dim('폭', 1102, 'scaled'), dim('상단 높이 (홈 윗면, 천장고 + 150)', WIN_TOP, 'scaled'), dim('창대 높이', SILL, 'assumed')],
   },
   {
     id: 'window-m', layer: 'wall', name: '창호 1/CAW (남)', material: 'glass',
-    remark: '창의 서쪽 끝(x 2355.4, X 3,550)은 중앙 벽 동쪽 면(X 3,563)과 13mm 다르다. 벽 면에 맞췄다.',
-    shapes: [box(C_E, -264, 4652, -244, SILL, HEAD)],
-    dims: [dim('폭', 1089, 'scaled'), dim('높이', HEAD - SILL, 'assumed')],
+    remark: '창의 서쪽 끝(x 2355.4, X 3,550)은 중앙 벽 동쪽 면(X 3,563)과 13mm 다르다. 벽 면에 맞췄다. 상세도에서 창틀 머리는 보 아래 면(y 581 ~ 584, 약 2,666)에 붙는다. 모델은 홈 윗면 높이 2,650에서 끝냈다. 150은 천장 면에서 홈 윗면까지의 표기다. 창대 높이는 가정이다.',
+    shapes: [box(C_E, -264, 4652, -244, SILL, WIN_TOP)],
+    dims: [dim('폭', 1089, 'scaled'), dim('상단 높이 (홈 윗면, 천장고 + 150)', WIN_TOP, 'scaled'), dim('창대 높이', SILL, 'assumed')],
   },
   {
     id: 'wall-pier', layer: 'wall', name: '창 사이 기둥',
@@ -177,9 +186,9 @@ const lowWalls: Item[] = [
   // 여는 중앙 벽 서쪽 면에서 서쪽(rot 180)으로, 남은 동쪽 면에서 동쪽(rot 0)으로 뻗는다. 틀의 +y가 반대라서 두겁돌 쪽 부호가 다르다.
   lowWall('f', C_W, LOW_Y, 180, 750, 101, 180, -CAP_OFF, LOW_H, { name: '세면대 칸막이벽 (여)', note: lowWallNote, remark: lowWallRemark }),
   lowWall('m', C_E, LOW_Y, 0, 750, 101, 180, CAP_OFF, LOW_H, { name: '세면대 칸막이벽 (남)', note: lowWallNote, remark: lowWallRemark }),
-  urinalChase('m', C_E, CHASE_Y0, 0, CAP.y0 - CHASE_Y0, 162, CHASE_H, URINAL_YS.map((y) => y - CHASE_Y0), 436, {
+  urinalChase('m', C_E, CHASE_Y0, 0, CAP.y0 - CHASE_Y0, 162, CHASE_H, [], 436, {
     name: '소변기 뒤 띠 (남)', note: 'THK20 화강석 두겁돌 설치 (L=4,000)',
-    remark: '중앙 벽 동쪽 면의 점묘 띠다(폭 162). 높이는 도면에 없다. 장애인용 소변기 손잡이가 띠 위를 지나게 그려져 있어서 손잡이보다 낮은 1,000으로 가정했다. 띠의 길이는 북측 창대석에서 세면대 칸막이벽까지 3,869다. 세면대 칸막이벽 두겁돌까지 합하면 4,049다. 소변기 자리(폭 약 437)는 도면에 띠를 가로지르는 선이 있다. 소변기 뒤판이 들어가는 자리로 보고 띠를 비웠다(작성자 판단).',
+    remark: '중앙 벽 동쪽 면의 점묘 띠다(폭 162). 높이는 도면에 없다. 장애인용 소변기 손잡이가 띠 위를 지나게 그려져 있어서 손잡이보다 낮은 1,000으로 가정했다. 띠의 길이는 북측 창대석에서 세면대 칸막이벽까지 3,869다. 세면대 칸막이벽 두겁돌까지 합하면 4,049다. 소변기 뒤판 자리(폭 약 437)에도 점묘가 이어진다(띠 안쪽 x 2361 ~ 2378의 점 밀도: 뒤판 안 1,000px²당 5.9 ~ 9.2개, 소변기 사이 3.4 ~ 4.4개). 그래서 띠와 두겁돌을 끊지 않았다(강의동 3층과 같은 처리). 띠를 가로지르는 선은 소변기 뒤판의 윤곽이다. 소변기 부품의 뒤판과 그릇의 벽 쪽 부분은 띠 안에 묻힌다.',
     dims: [dim('길이 (주기)', 4000, 'drawn'), dim('길이 (선 위치, 칸막이벽까지)', 3869, 'scaled'), dim('폭', 162, 'scaled'), dim('두겁돌 두께', 20, 'drawn'), dim('높이', CHASE_H, 'assumed')],
   }),
 ];
@@ -318,6 +327,14 @@ const glassShelfText = { note: '유리선반 설치 (r=300) (기계설비공사)
 const hookText = { note: '가방걸이 설치', remark: '도면의 문 2개에 가방걸이 기호가 그려져 있다. 평면 위치는 도면 환산값이다. 높이와 형상은 가정값이다. 문 안쪽 면에 달았다.' };
 const mirror = 'THK.5 방습거울 (기계설비공사)';
 
+// 커텐박스 주기. 뒤 주기 「THK1.6 갈바위 지정도장」은 「"A" 단면상세도」의 것이다.
+const curtainNote = '상부 커텐박스 설치 (L=1,300) / THK1.6 갈바위 지정도장';
+const curtainRemark = '주기의 뒤 부분(THK1.6 갈바위 지정도장)은 「"A" 단면상세도」의 주기다. 단면은 그 상세도를 따랐다. 천장 끝에서 위로 150 올라간 갈바 판이다. 판과 창 사이는 천장이 없는 홈이다. 판은 창틀 안쪽 면(창대석 바깥 끝, Y −203)에서 표기 340(Y 137)에 두었다. 평면의 점선(Y 94)과 43 다르다. 표기를 따랐다. 판 위 150 구간의 가는 선은 판의 고정 날개 또는 보 옆면의 마감이다. 상세도로 정할 수 없다. 천장 속이라서 그리지 않았다. 마구리 판은 평면 점선의 꺾인 끝을 따른 가정이다.';
+const curtainBoxM = curtainBox('m', (CURTAIN.m[0] + CURTAIN.m[1]) / 2, CURTAIN.y, 90, CURTAIN.m[1] - CURTAIN.m[0], CH, CURTAIN.front, N_IN + 3 - CURTAIN.y, {
+  name: '커텐박스 (남)', note: curtainNote,
+  remark: `길이는 평면의 점선(위에 있는 것) 범위다. 서쪽 끝은 중앙 벽면, 동쪽 끝은 선 위치(X 4,859)다. 형상의 길이는 1,297이고 주기의 표기는 1,300이다. ${curtainRemark}`,
+});
+
 const accessories: Item[] = [
   ...accessibleStall('f', W_IN, 0, 203, 894, 295, 800, 173, 501, 247),
   ...accessibleStall('m', E_IN, 180, 6998, 6291, 6389, 6897, 176, 488, 6945),
@@ -336,16 +353,16 @@ const accessories: Item[] = [
     shapes: [box(C_E, -203, 4652, -2, SILL - 20, SILL)],
     dims: [dim('폭', 200, 'drawn'), dim('두께', 20, 'drawn'), dim('높이', SILL, 'assumed')],
   },
-  // 창대석 안쪽 끝(Y −2)에 붙는다. 여는 서쪽 끝 X 1,738에서 표기 1,300, 남은 중앙 벽면에서 동쪽 끝 X 4,860까지다.
-  curtainBox('f', 1738 + 1300 / 2, -2, 90, 1300, CH, 96, 150, {
-    name: '커텐박스 (여)', note: '상부 커텐박스 설치 (L=1,300)',
-    remark: '도면의 점선(위에 있는 것) 범위다. 서쪽 끝은 선 위치, 길이는 표기 1,300이다. 깊이는 점선 환산값이다. 높이와 단면은 가정이다.',
+  // 「"A" 단면상세도」의 단면이다. 틀의 원점은 창틀 안쪽 면(Y −203)이다. 판은 표기 340(Y 137)에 있다. 박스 양 끝의 마구리 판은 북측 벽 마감 면(Y −49)에서 시작한다.
+  curtainBox('f', (CURTAIN.f[0] + CURTAIN.f[1]) / 2, CURTAIN.y, 90, CURTAIN.f[1] - CURTAIN.f[0], CH, CURTAIN.front, N_IN + 3 - CURTAIN.y, {
+    name: '커텐박스 (여)', note: curtainNote,
+    remark: `길이는 평면의 점선(위에 있는 것) 범위다. 서쪽 끝은 선 위치(X 1,738), 길이는 표기 1,300이다. ${curtainRemark}`,
   }),
-  curtainBox('m', (C_E + 4860) / 2, -2, 90, 4860 - C_E, CH, 96, 150, {
-    name: '커텐박스 (남)', note: '상부 커텐박스 설치 (L=1,300)',
-    remark: '도면의 점선(위에 있는 것) 범위다. 동쪽 끝은 선 위치(X 4,859)다. 서쪽 끝은 중앙 벽면이다. 높이와 단면은 가정이다.',
-    dims: [dim('길이', 1300, 'drawn'), dim('깊이', 96, 'scaled'), dim('높이', 150, A)],
-  }),
+  {
+    ...curtainBoxM,
+    // 형상의 길이는 평면 점선(중앙 벽면에서 X 4,860까지 1,297)이다. 길이 표기 1,300은 주기의 값이다.
+    dims: curtainBoxM.dims.map((d) => (d.label === '길이' ? dim('길이', 1300, 'drawn') : d)),
+  },
   {
     id: 'shelf-f', layer: 'accessory', name: '인조대리석 선반 (여)', note: 'THK20 인조대리석 선반 설치 (하부 고정 철물)', material: 'marble',
     remark: '평면 범위는 도면 환산값이다. 설치 높이는 가정값이다.',
@@ -460,14 +477,14 @@ const accessories: Item[] = [
 
 
 // 코너 비드. 도면의 「코너 비드 설치」 지시선 원 14개가 가리키는 벽 모서리에 붙였다.
-const windowBeadText = { remark: '위치는 도면의 지시선이 가리키는 벽 모서리(창의 옆 모서리)다. 창대 아래와 창 위는 벽면이 이어져 모서리가 없어서 창대 높이(1,200)에서 창 상단(2,100)까지만 그렸다. 폭, 두께, 높이는 도면에 없다. 가정값이다.' };
+const windowBeadText = { remark: '위치는 도면의 지시선이 가리키는 벽 모서리(창의 옆 모서리)다. 창대 아래는 창 구간의 벽이 이어져 모서리가 없다. 창 위에는 창 위 벽이 없다. 모서리는 커텐박스 홈 안으로 홈 윗면(2,650)까지 이어진다. 그래서 창대 높이(1,200, 가정)에서 홈 윗면(2,650)까지 그렸다. 폭과 두께는 도면에 없다. 가정값이다.' };
 const doorBeadText = { remark: '위치는 도면의 지시선이 가리키는 벽 모서리다. 출입문 개구 옆이라서 높이를 개구 상단(2,100, 가정)까지로 두었다. 폭과 두께는 가정값이다.' };
 const cornerBeads: Item[] = [
-  // 창 옆 3곳(1, 2, 4)은 창대와 창 상단 사이에만 모서리가 있다. 창대 아래와 창 위는 창 구간의 벽이 Y −2까지 나와서 모서리가 없다.
-  cornerBead(1, '여 창 서쪽 모서리', cornerBeadWings(1840, N_IN, 1, 1, HEAD, SILL), windowBeadText),
-  cornerBead(2, '여 창 동쪽 모서리', cornerBeadWings(2942, N_IN, -1, 1, HEAD, SILL), windowBeadText),
+  // 창 옆 3곳(1, 2, 4)은 창대에서 홈 윗면(2,650)까지 그린다. 창대 아래는 창 구간의 벽이 Y −2까지 나와서 모서리가 없다. 모서리는 커텐박스 홈 안으로 이어진다.
+  cornerBead(1, '여 창 서쪽 모서리', cornerBeadWings(1840, N_IN, 1, 1, WIN_TOP, SILL), windowBeadText),
+  cornerBead(2, '여 창 동쪽 모서리', cornerBeadWings(2942, N_IN, -1, 1, WIN_TOP, SILL), windowBeadText),
   cornerBead(3, '창 사이 기둥 남서 모서리', cornerBeadWings(PIER.x0, PIER.y1, -1, 1, CH)),
-  cornerBead(4, '남 창 동쪽 모서리', cornerBeadWings(4652, N_IN, -1, 1, HEAD, SILL), windowBeadText),
+  cornerBead(4, '남 창 동쪽 모서리', cornerBeadWings(4652, N_IN, -1, 1, WIN_TOP, SILL), windowBeadText),
   cornerBead(5, '여 조적벽 북동 모서리', cornerBeadWings(1495, BRICK.y0, 1, -1, CH)),
   cornerBead(6, '여 조적벽 남동 모서리', cornerBeadWings(1495, BRICK.y1, 1, 1, CH)),
   cornerBead(7, '남 조적벽 북서 모서리', cornerBeadWings(5697, BRICK.y0, -1, -1, CH)),
@@ -568,8 +585,11 @@ const finishes: Item[] = [
     shapes: [
       // 서측 벽, 북측 벽(대변기 칸 구간), 창 사이 기둥, 중앙 벽
       box(W_IN, N_IN, W_IN + 3, 6799, 0, CH), box(W_IN, N_IN, 1840, N_IN + 3, 0, CH),
-      // 창 구간 (창대 아래, 창 위)과 창 동쪽 벽
-      box(1840, -5, 2942, -2, 0, SILL - 20), box(1840, -5, 2942, -2, HEAD, CH), box(2942, N_IN, PIER.x0, N_IN + 3, 0, CH),
+      // 창 구간 (창대 아래), 창 옆 면(창틀 안쪽 면에서 벽 면까지, 창대에서 창 상단까지), 창 동쪽 벽
+      box(1840, -2, 2942, 1, 0, SILL - 20), box(1840, CURTAIN.y, 1843, N_IN, SILL, WIN_TOP), box(2939, CURTAIN.y, 2942, N_IN, SILL, WIN_TOP),
+      box(2942, N_IN, PIER.x0, N_IN + 3, 0, CH),
+      // 커텐박스 홈의 뒤 (창 폭 밖, 천장고에서 홈 윗면까지)
+      box(CURTAIN.f[0], N_IN, 1840, N_IN + 3, CH, WIN_TOP), box(2942, N_IN, CURTAIN.f[1], N_IN + 3, CH, WIN_TOP),
       box(PIER.x0 - 3, N_IN, PIER.x0, PIER.y1, 0, CH), box(PIER.x0, PIER.y1, C_W, PIER.y1 + 3, 0, CH), box(C_W - 3, PIER.y1 + 3, C_W, MID.y0, 0, CH),
       // 조적벽 세 면
       box(W_IN, BRICK.y0 - 3, 1495, BRICK.y0, 0, CH), box(W_IN, BRICK.y1, 1495, BRICK.y1 + 3, 0, CH), box(1495, BRICK.y0, 1498, BRICK.y1, 0, CH),
@@ -584,8 +604,9 @@ const finishes: Item[] = [
     shapes: [
       // 동측 벽, 북측 벽(대변기 칸 구간), 중앙 벽(소변기 뒤 띠 위)
       box(E_IN - 3, N_IN, E_IN, 6799, 0, CH), box(4652, N_IN, E_IN, N_IN + 3, 0, CH), box(C_E, -2, C_E + 3, MID.y0, 0, CH),
-      // 창 구간 (창대 아래, 창 위)
-      box(C_E, -5, 4652, -2, 0, SILL - 20), box(C_E, -5, 4652, -2, HEAD, CH),
+      // 창 구간 (창대 아래), 창 옆 면(창틀 안쪽 면에서 벽 면까지, 창대에서 창 상단까지), 커텐박스 홈의 뒤 (창 폭 밖)
+      box(C_E + 162, -2, 4652, 1, 0, SILL - 20), box(C_E, CURTAIN.y, C_E + 3, N_IN + 3, SILL, WIN_TOP), box(4649, CURTAIN.y, 4652, N_IN, SILL, WIN_TOP),
+      box(4652, N_IN, CURTAIN.m[1], N_IN + 3, CH, WIN_TOP),
       // 조적벽 세 면
       box(5697, BRICK.y0 - 3, E_IN, BRICK.y0, 0, CH), box(5697, BRICK.y1, E_IN, BRICK.y1 + 3, 0, CH), box(5694, BRICK.y0, 5697, BRICK.y1, 0, CH),
       // 중간 벽 세 면, 전실 남측 벽, 작은 실 동측 벽의 바깥 면
@@ -609,10 +630,17 @@ const finishes: Item[] = [
   {
     id: 'ceiling', layer: 'finish', name: '천장 마감', material: 'ceiling',
     note: '천장 : 경량철골 천장틀위 금속재 흡음천장 (AL. 600각)',
-    remark: '실내에서 볼 때만 그린다. 위에서 내려다볼 때는 그리지 않는다. 수채기실과 작은 실의 천장 마감은 도면에 없다. 화장실과 같은 것으로 가정했다. 패널 나누기 위치도 가정이다.',
-    shapes: [box(-101, -354, 7303, 7003, CH, CH + 30)],
+    remark: '실내에서 볼 때만 그린다. 위에서 내려다볼 때는 그리지 않는다. 「"A" 단면상세도」의 주기 「금속 흡음천장」도 같은 천장이다. 커텐박스 홈(커텐박스 길이 × 북측 벽면에서 갈바 판 Y 137까지)에는 천장이 없다. 수채기실과 작은 실의 천장 마감은 도면에 없다. 화장실과 같은 것으로 가정했다. 패널 나누기 위치도 가정이다.',
+    shapes: [
+      // 갈바 판 남쪽 전체, 판 북쪽은 커텐박스 홈 2곳을 뺀 나머지
+      box(-101, CURTAIN_FACE, 7303, 7003, CH, CH + 30),
+      box(-101, -354, CURTAIN.f[0], CURTAIN_FACE, CH, CH + 30), box(CURTAIN.f[1], -354, CURTAIN.m[0], CURTAIN_FACE, CH, CH + 30), box(CURTAIN.m[1], -354, 7303, CURTAIN_FACE, CH, CH + 30),
+    ],
     dims: [dim('천장고', CH, 'drawn'), dim('패널 크기', '600 x 600', 'drawn')],
   },
+  // 커텐박스 홈의 윗면(창 위 면). 「"A" 단면상세도」의 주기다. 인자는 커텐박스와 같다.
+  curtainPocketTop('f', (CURTAIN.f[0] + CURTAIN.f[1]) / 2, CURTAIN.y, 90, CURTAIN.f[1] - CURTAIN.f[0], CH, CURTAIN.front, { name: '커텐박스 홈 윗면 (여)' }),
+  curtainPocketTop('m', (CURTAIN.m[0] + CURTAIN.m[1]) / 2, CURTAIN.y, 90, CURTAIN.m[1] - CURTAIN.m[0], CH, CURTAIN.front, { name: '커텐박스 홈 윗면 (남)' }),
 ];
 
 export const research1fCalibration: Calibration = {
