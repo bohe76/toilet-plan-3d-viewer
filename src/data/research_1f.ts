@@ -230,7 +230,7 @@ const partitions: Item[] = [
 const SLIDE = { y: 912, length: 1005, handle: 970 };
 
 const stallDoorText = { remark: '도면은 문을 안쪽으로 90도 연 상태로 그렸다. 모델도 같은 상태다. 문 높이는 칸막이 높이를 따랐다. 하부 틈은 가정값이다.' };
-const entranceRemark = '도면은 문을 남쪽(복도)으로 90도 연 상태로 그렸다. 경첩은 도면 문짝 선의 벽 쪽 끝(마구리)이다. 경첩 X는 문짝 선 두께의 중심이다. 문짝 폭은 마구리에서 문짝 끝까지의 문짝 선 길이다. 열림 호는 확인용으로만 썼다. 문 높이는 가정값이다.';
+const entranceRemark = '도면은 문을 남쪽(복도)으로 90도 연 상태로 그렸다. 경첩은 도면 문짝 선의 벽 쪽 끝(마구리)이다. 경첩 X는 문짝 선 두께의 중심이다. 문짝 폭은 마구리에서 문짝 끝까지의 문짝 선 길이다. 열림 호는 확인용으로만 썼다. 문 높이는 가정값이다. 문짝 아래 끝은 재료분리대 윗면(노출 10)이다.';
 
 const doors: Item[] = [
   // 문짝 두께 중심 X: 여 1,480 ~ 1,504, 남 5,681 ~ 5,708의 가운데
@@ -240,12 +240,12 @@ const doors: Item[] = [
   ...STALLS.map((s) => stallDoor(`m${s.n}`, FRONT_M, s.hinge, 0, 580, stallDoorText)),
   {
     id: 'door-entrance-f', layer: 'door', name: '출입문 1/SSD (여)', material: 'steelDoor', remark: entranceRemark,
-    shapes: [{ type: 'leaf', hx: 1369, hy: 6934, width: 1153, angleDeg: 90, thickness: 40, z0: 0, z1: HEAD }],
+    shapes: [{ type: 'leaf', hx: 1369, hy: 6934, width: 1153, angleDeg: 90, thickness: 40, z0: 10, z1: HEAD }],
     dims: [dim('문짝 폭', 1153, 'scaled'), dim('높이', HEAD, 'assumed')],
   },
   {
     id: 'door-entrance-m', layer: 'door', name: '출입문 1/SSD (남)', material: 'steelDoor', remark: entranceRemark,
-    shapes: [{ type: 'leaf', hx: 5839, hy: 6930, width: 1154, angleDeg: 90, thickness: 40, z0: 0, z1: HEAD }],
+    shapes: [{ type: 'leaf', hx: 5839, hy: 6930, width: 1154, angleDeg: 90, thickness: 40, z0: 10, z1: HEAD }],
     dims: [dim('문짝 폭', 1154, 'scaled'), dim('높이', HEAD, 'assumed')],
   },
   {

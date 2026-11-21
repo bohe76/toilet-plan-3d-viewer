@@ -209,9 +209,9 @@ const doors: Item[] = [
   }),
   {
     id: 'door-entrance', layer: 'door', name: '출입문 4/SSD', material: 'steelDoor',
-    remark: '도면은 문을 동쪽(바깥)으로 90도 연 상태로 그렸다. 경첩은 개구의 북쪽 끝이다. 문틀(북쪽)은 도면의 외곽만 따랐다. 문틀 머리 아랫면 2,380은 단면상세도의 환산값이다(door-entrance-head). 문짝 높이를 문틀 머리 아랫면까지로 본 것은 가정이다.',
+    remark: '도면은 문을 동쪽(바깥)으로 90도 연 상태로 그렸다. 경첩은 개구의 북쪽 끝이다. 문틀(북쪽)은 도면의 외곽만 따랐다. 문틀 머리 아랫면 2,380은 단면상세도의 환산값이다(door-entrance-head). 문짝 높이를 문틀 머리 아랫면까지로 본 것은 가정이다. 문짝 아래 끝은 재료분리대 윗면(노출 10)이다.',
     shapes: [
-      { type: 'leaf', hx: 4526, hy: 2264, width: 1000, angleDeg: 0, thickness: 40, z0: 0, z1: ENTRY_HEAD },
+      { type: 'leaf', hx: 4526, hy: 2264, width: 1000, angleDeg: 0, thickness: 40, z0: 10, z1: ENTRY_HEAD },
       box(4443, 2195, 4594, 2247, 0, ENTRY_HEAD),
     ],
     dims: [dim('문짝 폭', 1000, 'scaled'), dim('문짝 높이', ENTRY_HEAD, 'assumed')],
