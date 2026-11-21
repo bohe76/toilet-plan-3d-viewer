@@ -16,7 +16,7 @@
 | typecheck, lint, build | 통과 (2026-11-21) |
 | 공개 배포 (GitHub Pages) | 완료 (2026-11-21). 주소와 재배포 순서는 6절 「공개 배포」 |
 
-보헤님은 아직 실사 모드 화면을 직접 보지 않았다. 화면 확인은 chrome-devtools-headless MCP 캡처로 했다. 캡처는 `work/verify/p6/final_*.png` 에 있다(git 제외).
+보헤님은 3차 세션에서 실사 모드 화면을 확인했다. 답은 「다 좋다」였다(2절). 작성자의 화면 확인은 캡처로 했다. 2차 세션은 chrome-devtools-headless MCP를 썼다. 3차 세션은 MCP가 연결되지 않아서 Chrome 헤드리스에 DevTools Protocol을 직접 불렀다(6절 「화면 확인」). 캡처는 `work/verify/p6/final_*.png` 에 있다(git 제외).
 
 ## 2. 다음 작업 순서
 
