@@ -1,6 +1,6 @@
 # 연구동 4층 측정값 (PDF 7페이지)
 
-`src/data/research_4f.ts` 의 좌표 근거다. 상태: 모델 데이터 작성 완료, 화면 확인 완료, 독립 검수 전.
+`src/data/research_4f.ts` 의 좌표 근거다. 상태: 모델 데이터 작성 완료, 화면 확인 완료, 독립 검수 완료([검수 기록](../verification/research_4f_verification.md)).
 
 원칙: 도면의 선 위치(축척 환산)와 표기 치수가 다르면 표기 치수를 따른다.
 
