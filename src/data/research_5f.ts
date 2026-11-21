@@ -250,7 +250,8 @@ const accessories: Item[] = [
   // 코너 비드. 도면의 「코너 비드 설치」 지시선 3개가 가리키는 벽 모서리에 붙였다.
   cornerBead(1, '창 동쪽 모서리', [box(1784, -32, 1789, -2, 0, SILL - 20), box(1759, -7, 1789, -2, 0, SILL - 20), box(1784, -32, 1789, -2, HEAD, CH), box(1759, -7, 1789, -2, HEAD, CH)]),
   cornerBead(2, '기둥 남동 모서리', [box(288, 475, 293, 505, 0, CH), box(263, 500, 293, 505, 0, CH)]),
-  cornerBead(3, '출입구 서쪽 모서리', [box(2627, WALL.south - 5, 2657, WALL.south, 0, CH), box(2652, WALL.south - 5, 2657, WALL.south + 25, 0, CH)]),
+  // 출입문 개구 옆이다. 문 상단(HEAD) 위는 벽이라서 모서리가 없다.
+  cornerBead(3, '출입구 서쪽 모서리', [box(2627, WALL.south - 5, 2657, WALL.south, 0, HEAD), box(2652, WALL.south - 5, 2657, WALL.south + 25, 0, HEAD)], { remark: '위치는 도면의 지시선이 가리키는 벽 모서리다. 출입문 개구 옆이라서 높이를 개구 상단(2,100, 가정)까지로 두었다. 폭과 두께는 가정값이다.' }),
 ];
 
 const lightRemark = '도면에 손으로 적은 「조명」 위치다. 기구 종류와 설치 높이는 도면에 없다. 천장면에 위치만 표시했다. 실사 모드는 이 위치에 광원을 놓는다.';

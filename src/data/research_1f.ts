@@ -460,11 +460,14 @@ const accessories: Item[] = [
 
 
 // 코너 비드. 도면의 「코너 비드 설치」 지시선 원 14개가 가리키는 벽 모서리에 붙였다.
+const windowBeadText = { remark: '위치는 도면의 지시선이 가리키는 벽 모서리(창의 옆 모서리)다. 창대 아래와 창 위는 벽면이 이어져 모서리가 없어서 창대 높이(1,200)에서 창 상단(2,100)까지만 그렸다. 폭, 두께, 높이는 도면에 없다. 가정값이다.' };
+const doorBeadText = { remark: '위치는 도면의 지시선이 가리키는 벽 모서리다. 출입문 개구 옆이라서 높이를 개구 상단(2,100, 가정)까지로 두었다. 폭과 두께는 가정값이다.' };
 const cornerBeads: Item[] = [
-  cornerBead(1, '여 창 서쪽 모서리', cornerBeadWings(1840, N_IN, 1, 1, CH)),
-  cornerBead(2, '여 창 동쪽 모서리', cornerBeadWings(2942, N_IN, -1, 1, CH)),
+  // 창 옆 3곳(1, 2, 4)은 창대와 창 상단 사이에만 모서리가 있다. 창대 아래와 창 위는 창 구간의 벽이 Y −2까지 나와서 모서리가 없다.
+  cornerBead(1, '여 창 서쪽 모서리', cornerBeadWings(1840, N_IN, 1, 1, HEAD, SILL), windowBeadText),
+  cornerBead(2, '여 창 동쪽 모서리', cornerBeadWings(2942, N_IN, -1, 1, HEAD, SILL), windowBeadText),
   cornerBead(3, '창 사이 기둥 남서 모서리', cornerBeadWings(PIER.x0, PIER.y1, -1, 1, CH)),
-  cornerBead(4, '남 창 동쪽 모서리', cornerBeadWings(4652, N_IN, -1, 1, CH)),
+  cornerBead(4, '남 창 동쪽 모서리', cornerBeadWings(4652, N_IN, -1, 1, HEAD, SILL), windowBeadText),
   cornerBead(5, '여 조적벽 북동 모서리', cornerBeadWings(1495, BRICK.y0, 1, -1, CH)),
   cornerBead(6, '여 조적벽 남동 모서리', cornerBeadWings(1495, BRICK.y1, 1, 1, CH)),
   cornerBead(7, '남 조적벽 북서 모서리', cornerBeadWings(5697, BRICK.y0, -1, -1, CH)),
@@ -473,8 +476,9 @@ const cornerBeads: Item[] = [
   cornerBead(10, '여 중간 벽 남서 모서리', cornerBeadWings(1395, MID.y1, -1, 1, CH)),
   cornerBead(11, '남 중간 벽 북동 모서리', cornerBeadWings(5701, MID.y0, 1, -1, CH)),
   cornerBead(12, '남 중간 벽 남동 모서리', cornerBeadWings(5701, MID.y1, 1, 1, CH)),
-  cornerBead(13, '여 전실 남측 벽 동쪽 끝', cornerBeadWings(1301, 6799, 1, -1, CH)),
-  cornerBead(14, '남 전실 남측 벽 서쪽 끝', cornerBeadWings(5907, 6799, -1, -1, CH)),
+  // 출입문 옆 2곳(13, 14)은 문 상단까지만 모서리가 있다. 그 위는 벽이다.
+  cornerBead(13, '여 전실 남측 벽 동쪽 끝', cornerBeadWings(1301, 6799, 1, -1, HEAD), doorBeadText),
+  cornerBead(14, '남 전실 남측 벽 서쪽 끝', cornerBeadWings(5907, 6799, -1, -1, HEAD), doorBeadText),
 ];
 
 const lightRemark = '도면에 손으로 적은 「조명」과 형광펜 위치다. 기구 종류와 설치 높이는 도면에 없다. 천장면에 위치만 표시했다. 실사 모드는 이 위치에 광원을 놓는다.';
