@@ -211,9 +211,10 @@ export const glassShelf = (key: string | number, cx: number, cy: number, startDe
 });
 
 /** 코너 비드. shapes는 벽 모서리에 붙는 날개 2개(폭 25, 두께 5)다. */
-export const cornerBead = (key: string | number, where: string, shapes: Shape[]): Item => ({
+export const cornerBead = (key: string | number, where: string, shapes: Shape[], over: Over = {}): Item => ({
   id: `corner-bead-${key}`, layer: 'accessory', name: `코너 비드 ${key} (${where})`, note: '코너 비드 설치', material: 'metal',
   remark: '위치는 도면의 지시선이 가리키는 벽 모서리다. 폭, 두께, 높이는 도면에 없다. 가정값이다.',
   shapes,
   dims: [dim('위치', where, 'scaled'), dim('날개 폭', 25, 'assumed'), dim('두께', 5, 'assumed'), dim('높이', '바닥에서 천장까지', 'assumed')],
+  ...over,
 });
