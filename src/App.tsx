@@ -13,8 +13,8 @@ const VIEWS: { id: ViewMode; label: string }[] = [
 ];
 
 const MODES: { id: RenderMode; label: string; title: string }[] = [
-  { id: 'plan', label: '도면', title: '스캔 도면을 바닥에 깔고 모델을 겹쳐 본다' },
   { id: 'real', label: '실사', title: '재질, 조명, 그림자를 넣어 본다' },
+  { id: 'plan', label: '도면', title: '스캔 도면을 바닥에 깔고 모델을 겹쳐 본다' },
 ];
 
 const ARROWS: Record<string, [number, number]> = {
@@ -32,7 +32,8 @@ const PILOT_ID = 'research-3f';
 /** 화면이 멈춘 뒤 고품질 렌더를 시작할 때까지 기다리는 시간(ms) */
 const HQ_DELAY_MS = 1500;
 
-// URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200&dim=1&mode=real&added=0&hq=0
+// URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200&dim=1&mode=plan&added=0&hq=1
+// 처음 화면은 실사 모드다(보헤님 지시, 2026-11-21). mode=plan 은 도면 모드로 시작한다. 모델이 없는 탭은 도면 모드만 쓴다.
 // hq=1 은 고품질 렌더 스위치를 켠 채로 시작한다.
 // added 인자가 없으면 상식 보완 품목은 실사 모드에서만 보인다. added=0 은 두 모드 모두 숨기고, added=1 은 두 모드 모두 보인다.
 const params = new URLSearchParams(window.location.search);
@@ -50,7 +51,7 @@ const initialAdded: Record<RenderMode, boolean> = {
 export function App() {
   const [activeId, setActiveId] = useState(initialSheet.id);
   const [view, setView] = useState<ViewMode>(initialView);
-  const [mode, setMode] = useState<RenderMode>(params.get('mode') === 'real' ? 'real' : 'plan');
+  const [mode, setMode] = useState<RenderMode>(params.get('mode') === 'plan' ? 'plan' : 'real');
   const [layers, setLayers] = useState<Record<LayerId, boolean>>({
     wall: true, partition: true, door: true, fixture: true, accessory: true, light: true, finish: true, dim: params.get('dim') === '1',
   });
@@ -133,7 +134,7 @@ export function App() {
   const idle = trace === null;
   useEffect(() => {
     if (!canTrace || !idle) return;
-    const timer = window.setTimeout(() => setTrace({ state: 'preparing', samples: 0, target: 0, seconds: 0 }), HQ_DELAY_MS);
+    const timer = window.setTimeout(() => setTrace({ state: 'preparing', samples: 0, target: 0, showAt: 0, seconds: 0 }), HQ_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [canTrace, idle, activity]);
 
@@ -354,6 +355,10 @@ export function App() {
               <span>고품질 렌더 준비 중…</span>
             ) : trace.state === 'compiling' ? (
               <span>고품질 렌더 셰이더 준비 중 · {Math.round(trace.seconds)}초 (처음 한 번은 몇 분 걸린다)</span>
+            ) : trace.samples < trace.showAt ? (
+              <span>
+                고품질 렌더 계산 중 · 표본 {trace.samples} / {trace.showAt} (다 모이면 화면을 바꾼다) · {Math.round(trace.seconds)}초
+              </span>
             ) : (
               <span>
                 고품질 렌더 {trace.state === 'done' ? '완료' : '진행 중'} · 표본 {trace.samples} / {trace.target} · {Math.round(trace.seconds)}초

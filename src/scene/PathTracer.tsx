@@ -4,6 +4,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { GradientEquirectTexture, WebGLPathTracer } from 'three-gpu-pathtracer';
 
 export interface PathTraceStatus {
@@ -11,6 +12,8 @@ export interface PathTraceStatus {
   state: 'preparing' | 'compiling' | 'rendering' | 'done' | 'error';
   samples: number;
   target: number;
+  /** 표본이 이만큼 모이면 화면을 고품질 렌더로 바꾼다. 그 전에는 실시간 화면이 남아 있다. */
+  showAt: number;
   seconds: number;
   message?: string;
 }
@@ -29,12 +32,86 @@ const MAX_SIDE = 1920;
 const START_TILES = 16;
 /** 타일 1장을 그리는 시간의 목표 상한(ms) */
 const TILE_BUDGET_MS = 250;
+/**
+ * 표본이 이만큼 모인 뒤에 화면을 고품질 렌더로 바꾼다(보헤님 결정, 2026-11-21).
+ * 그 전에는 실시간 실사 화면을 그대로 둔다. 표본이 적은 화면은 점투성이라서 보여 주지 않는다.
+ */
+const SHOW_SAMPLES = 16;
+/**
+ * 노이즈 제거 필터(보헤님 결정, 2026-11-21). 적은 표본에 남은 점을 이웃 화소와 섞어서 없앤다.
+ * 점이 없는 실시간 화면을 길잡이로 쓴다. 길잡이에서 색이 비슷한 화소(같은 면)끼리만 섞는다.
+ * 섞는 값은 「경로 추적 값 ÷ 길잡이 값」(빛의 비율)이다. 섞은 뒤에 길잡이 값을 다시 곱한다.
+ * 그래서 타일 줄눈, 나뭇결, 물체 윤곽은 길잡이에서 그대로 온다. 빛과 그림자의 분포는 경로 추적에서 온다.
+ * 표본이 쌓일수록 섞는 반경을 줄인다. 표본이 충분하면 경로 추적 화면 그대로가 된다.
+ * 라이브러리의 DenoiseMaterial 은 쓰지 않는다. 그 필터는 경로 추적 화면끼리 비교해서, 점이 심하면 섞지 않는다(표본 4개 화면으로 확인).
+ */
+const DENOISE = {
+  /** 화면을 처음 내놓을 때(표본 SHOW_SAMPLES 개) 섞는 반경(화소). 표본 수의 제곱근에 반비례해서 줄어든다 */
+  radius: 8,
+  /** 반경의 하한. 이보다 작으면 필터가 하는 일이 없다 */
+  minRadius: 1,
+  /** 길잡이에서 같은 면으로 보는 색 차이. 크면 더 넓게 섞고 경계가 흐려진다 */
+  guideSigma: 0.08,
+  /** 화소 1개가 가질 수 있는 가장 밝은 값. 튀는 점 하나가 주변을 하얗게 만들지 않게 한다 */
+  clamp: 12,
+};
+
+const DENOISE_VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const DENOISE_FRAGMENT = /* glsl */ `
+  uniform sampler2D map;
+  uniform sampler2D guide;
+  uniform float radius;
+  uniform float guideSigma;
+  uniform float clampValue;
+  varying vec2 vUv;
+
+  // 길잡이가 검은 곳에서 나눗셈이 튀지 않게 더하는 값
+  const float EPSILON = 0.02;
+
+  // 밝은 값의 차이를 줄여서 비교한다. 조명 바로 아래처럼 밝은 곳에서 작은 차이를 경계로 보지 않게 한다.
+  vec3 squash(vec3 c) {
+    return c / (1.0 + c);
+  }
+
+  void main() {
+    vec2 texel = 1.0 / vec2(textureSize(map, 0));
+    vec3 base = texture2D(guide, vUv).rgb;
+    vec3 center = squash(base);
+    float spatial = 0.5 * radius * radius;
+    float range = 2.0 * guideSigma * guideSigma;
+    vec3 sum = vec3(0.0);
+    float total = 0.0;
+    for (float y = -radius; y <= radius; y++) {
+      for (float x = -radius; x <= radius; x++) {
+        vec2 d = vec2(x, y);
+        vec2 uv = vUv + d * texel;
+        vec3 g = texture2D(guide, uv).rgb;
+        vec3 dg = squash(g) - center;
+        float w = exp(-dot(d, d) / spatial - dot(dg, dg) / range);
+        sum += w * min(texture2D(map, uv).rgb, vec3(clampValue)) / (g + EPSILON);
+        total += w;
+      }
+    }
+    gl_FragColor = vec4((base + EPSILON) * sum / total, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
 
 /**
  * 렌더러마다 경로 추적기를 1개만 만들어 다시 쓴다.
  * WebGLPathTracer.dispose() 는 질감 배열과 BVH 질감을 해제하지 않는다. 열 때마다 새로 만들면 GPU 메모리가 샌다.
  */
 const tracers = new WeakMap<THREE.WebGLRenderer, WebGLPathTracer>();
+/** 노이즈 제거 필터를 거는 전체 화면 사각형. 렌더러마다 1개다. */
+const denoisers = new WeakMap<THREE.WebGLRenderer, { quad: FullScreenQuad; material: THREE.ShaderMaterial }>();
 
 export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) => void }) {
   const gl = useThree((s) => s.gl);
@@ -51,6 +128,8 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
   const slowest = useRef(0);
   const tunedAt = useRef(0);
   const finished = useRef(false);
+  /** 화면에 내놓은 마지막 표본 수. 필터가 무거워서 표본 1개를 마칠 때만 화면을 다시 그린다. */
+  const shown = useRef(-1);
 
   useEffect(() => {
     const previousToneMapping = gl.toneMapping;
@@ -58,16 +137,18 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
     const previousIntensity = scene.environmentIntensity;
     let pathTracer: WebGLPathTracer | null = null;
     let sky: GradientEquirectTexture | null = null;
+    let guide: THREE.WebGLRenderTarget | null = null;
     const fail = (message: string) => {
       tracer.current = null;
       // 컨텍스트가 사라지면 경로 추적기의 GPU 자원도 사라진다. 다음에는 새로 만든다.
       tracers.delete(gl);
-      onStatus({ state: 'error', samples: 0, target: TARGET_SAMPLES, seconds: (performance.now() - started.current) / 1000, message });
+      denoisers.delete(gl);
+      onStatus({ state: 'error', samples: 0, target: TARGET_SAMPLES, showAt: SHOW_SAMPLES, seconds: (performance.now() - started.current) / 1000, message });
     };
     const onContextLost = () => fail('그래픽 장치가 렌더를 중단했다(WebGL 컨텍스트 손실). 닫은 뒤 화면을 다시 불러온다.');
     gl.domElement.addEventListener('webglcontextlost', onContextLost);
     started.current = performance.now();
-    onStatus({ state: 'preparing', samples: 0, target: TARGET_SAMPLES, seconds: 0 });
+    onStatus({ state: 'preparing', samples: 0, target: TARGET_SAMPLES, showAt: SHOW_SAMPLES, seconds: 0 });
     // 준비 중 표시가 먼저 화면에 나오도록 한 박자 늦춰 시작한다. 장면 준비가 화면을 잠깐 멈춘다.
     const timer = window.setTimeout(() => {
       try {
@@ -87,11 +168,55 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
         pathTracer.tiles.set(START_TILES, START_TILES);
         pathTracer.bounces = 5;
         pathTracer.filterGlossyFactor = 0.5;
-        pathTracer.minSamples = 1;
+        // 표본이 SHOW_SAMPLES 만큼 모일 때까지 캔버스에 아무것도 그리지 않는다. 직전의 실시간 화면이 그대로 남는다.
+        pathTracer.minSamples = SHOW_SAMPLES;
         pathTracer.renderDelay = 0;
         pathTracer.fadeDuration = 0;
-        // 첫 표본이 나올 때까지 직전 화면을 그대로 둔다.
         pathTracer.rasterizeScene = false;
+        // 길잡이 화면을 만든다. 지금 시점의 실시간 화면을 경로 추적 화면과 같은 크기로 한 번 그린다.
+        const width = Math.floor(size.x * pathTracer.renderScale);
+        const height = Math.floor(size.y * pathTracer.renderScale);
+        guide = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType });
+        const previousTarget = gl.getRenderTarget();
+        gl.setRenderTarget(guide);
+        gl.clear();
+        gl.render(scene, camera);
+        gl.setRenderTarget(previousTarget);
+        // 화면에 내놓을 때 노이즈 제거 필터를 거친다.
+        let denoise = denoisers.get(gl);
+        if (!denoise) {
+          const material = new THREE.ShaderMaterial({
+            uniforms: {
+              map: { value: null },
+              guide: { value: null },
+              radius: { value: DENOISE.radius },
+              guideSigma: { value: DENOISE.guideSigma },
+              clampValue: { value: DENOISE.clamp },
+            },
+            vertexShader: DENOISE_VERTEX,
+            fragmentShader: DENOISE_FRAGMENT,
+            blending: THREE.NoBlending,
+            depthTest: false,
+            depthWrite: false,
+          });
+          denoise = { quad: new FullScreenQuad(material), material };
+          denoisers.set(gl, denoise);
+        }
+        const { quad, material } = denoise;
+        material.uniforms.guide.value = guide.texture;
+        shown.current = -1;
+        pathTracer.renderToCanvasCallback = (target, renderer) => {
+          // 표본 1개를 마칠 때만 다시 그린다. 그 사이에는 직전 화면이 남아 있다.
+          const whole = Math.floor(pathTracer?.samples ?? 0);
+          if (whole === shown.current) return;
+          shown.current = whole;
+          material.uniforms.map.value = target.texture;
+          material.uniforms.radius.value = THREE.MathUtils.clamp(DENOISE.radius * Math.sqrt(SHOW_SAMPLES / Math.max(whole, 1)), DENOISE.minRadius, DENOISE.radius);
+          const autoClear = renderer.autoClear;
+          renderer.autoClear = false;
+          quad.render(renderer);
+          renderer.autoClear = autoClear;
+        };
         pathTracer.setScene(scene, camera);
         reportedAt.current = 0;
         slowest.current = 0;
@@ -118,6 +243,7 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
         fence.current = null;
       }
       sky?.dispose();
+      guide?.dispose();
       scene.environment = previousEnvironment;
       scene.environmentIntensity = previousIntensity;
       gl.toneMapping = previousToneMapping;
@@ -158,7 +284,7 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
       pathTracer.renderSample();
     } catch (error) {
       tracer.current = null;
-      onStatus({ state: 'error', samples: 0, target: TARGET_SAMPLES, seconds: (performance.now() - started.current) / 1000, message: error instanceof Error ? error.message : String(error) });
+      onStatus({ state: 'error', samples: 0, target: TARGET_SAMPLES, showAt: SHOW_SAMPLES, seconds: (performance.now() - started.current) / 1000, message: error instanceof Error ? error.message : String(error) });
       return;
     }
     issuedAt.current = performance.now();
@@ -172,7 +298,7 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
     if (done || now - reportedAt.current >= 1000) {
       reportedAt.current = now;
       const state = done ? 'done' : pathTracer.samples > 0 ? 'rendering' : 'compiling';
-      onStatus({ state, samples, target: TARGET_SAMPLES, seconds: (now - started.current) / 1000 });
+      onStatus({ state, samples, target: TARGET_SAMPLES, showAt: SHOW_SAMPLES, seconds: (now - started.current) / 1000 });
     }
     if (!done) invalidate();
   }, 1);
