@@ -157,9 +157,9 @@ export const urinal = (key: string | number, x: number, y: number, rot: Rot, wid
   shapes: place([
     // 벽에 붙는 등판
     rbox(0, -width / 2, 90, width / 2, 470, 1180, 40),
-    // 그릇. 벽 쪽 절반은 등판과 벽에 묻힌다.
+    // 그릇. 벽면에서 depth까지를 채운다. 벽 뒤로 넘어가지 않는다(얇은 벽을 뚫지 않게 한다).
     {
-      type: 'lathe', cx: 60, cy: 0, rx: depth - 60, ry: width / 2 - 10,
+      type: 'lathe', cx: depth / 2, cy: 0, rx: depth / 2, ry: width / 2 - 10,
       profile: [[0.25, 380], [0.55, 420], [0.9, 520], [1, 600], [1, 640], [0.93, 640], [0.8, 560], [0.4, 470], [0, 455]],
     },
     // 세척 밸브
