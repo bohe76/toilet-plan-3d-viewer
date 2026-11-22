@@ -80,18 +80,19 @@ export const doorLever = (id: string, name: string, hx: number, hy: number, angl
   };
 };
 
-/** 출입문의 세로 봉 손잡이. 문짝의 두 면에 단다. width는 문짝 폭이다. 문짝 두께는 40으로 본다. */
-export const pullHandle = (id: string, name: string, hx: number, hy: number, angleDeg: Rot, width: number): Item => {
+/** 출입문의 세로 봉 손잡이. 문짝의 두 면에 단다. width는 문짝 폭, thickness는 문짝 두께(기본값 40)다. */
+export const pullHandle = (id: string, name: string, hx: number, hy: number, angleDeg: Rot, width: number, thickness = 40): Item => {
   const px = width - 58;
+  const t = thickness / 2;
   return {
     id, layer: 'door', name, added: true, material: 'brass',
     shapes: place([
-      tube([[px, 60, 850], [px, 60, 1250]], 11),
-      tube([[px, 20, 900], [px, 60, 900]], 6),
-      tube([[px, 20, 1200], [px, 60, 1200]], 6),
-      tube([[px, -38, 850], [px, -38, 1250]], 8),
-      tube([[px, -20, 900], [px, -38, 900]], 5),
-      tube([[px, -20, 1200], [px, -38, 1200]], 5),
+      tube([[px, t + 40, 850], [px, t + 40, 1250]], 11),
+      tube([[px, t, 900], [px, t + 40, 900]], 6),
+      tube([[px, t, 1200], [px, t + 40, 1200]], 6),
+      tube([[px, -t - 18, 850], [px, -t - 18, 1250]], 8),
+      tube([[px, -t, 900], [px, -t - 18, 900]], 5),
+      tube([[px, -t, 1200], [px, -t - 18, 1200]], 5),
     ], hx, hy, angleDeg),
     dims: [dim('길이', 400, A), dim('중심 높이', 1050, A)],
   };

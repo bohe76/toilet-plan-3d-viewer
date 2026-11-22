@@ -83,8 +83,8 @@ const stallFrame: Item[] = [
 
 const doorHardware: Item[] = [
   // 경첩, 방향, 문짝 폭은 research_1f.ts 의 문과 같다.
-  pullHandle('handle-entrance-f', '출입문 손잡이 (여)', 1369, 6934, 90, 1153),
-  pullHandle('handle-entrance-m', '출입문 손잡이 (남)', 5839, 6930, 90, 1154),
+  pullHandle('handle-entrance-f', '출입문 손잡이 (여)', 1369, 6934, 90, 1153, 34),
+  pullHandle('handle-entrance-m', '출입문 손잡이 (남)', 5839, 6930, 90, 1154, 30),
   doorLever('handle-mop', '수채기실 문 손잡이', 2534, 5948, 180, 651),
 ];
 
