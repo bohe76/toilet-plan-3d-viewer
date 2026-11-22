@@ -25,7 +25,7 @@
 | 강의동 3F | 2,350 | 74 + 35 | 3차 조건부 PASS (0 / 1 / 8) | [lecture_3f_verification.md](../verification/lecture_3f_verification.md) |
 | 강의동 4F | 2,800 | 75 + 39 | 2차 조건부 PASS (0 / 1 / 2) | [lecture_4f_verification.md](../verification/lecture_4f_verification.md) |
 | 연구동 1F | 2,500 | 128 + 56 | 7차 조건부 PASS (0 / 1 / 6) | [research_1f_verification.md](../verification/research_1f_verification.md) |
-| 연구동 2F | 2,450 (남 「+」 구역 2,800) | 129 + 72 | 3차 조건부 PASS (0 / 1 / 8) | [research_2f_verification.md](../verification/research_2f_verification.md) |
+| 연구동 2F | 2,450 (남 「+」 구역 2,800) | 129 + 72 | 3차 조건부 PASS (0 / 1 / 8), 4차는 점검구만 (0 / 0 / 3) | [research_2f_verification.md](../verification/research_2f_verification.md) |
 | 연구동 3F | 2,550 | 59 + 36 | 4차 PASS | [research_3f_verification.md](../verification/research_3f_verification.md) |
 | 연구동 4F | 2,450 | 63 + 33 | 2차 조건부 PASS (0 / 2 / 1) | [research_4f_verification.md](../verification/research_4f_verification.md) |
 | 연구동 5F | 2,450 | 59 + 37 | 2차 조건부 PASS (0 / 0 / 3) | [research_5f_verification.md](../verification/research_5f_verification.md) |
@@ -87,6 +87,8 @@
 - **손글씨 「조명」이 없는 형광펜에는 조명 품목을 만들지 않았다.** 사실만 기록했다(연구동 2F 남 「+」 구역).
 - **거울이 벽에서 26 ~ 30 떨어져 그려진 곳은 벽 면에 붙였다.** `remark` 에 거리를 적었다.
 - **출입문 문짝의 아래 끝은 재료분리대 윗면(노출 10)이다.**
+- **연구동 1F의 창틀 자리(폭 41)의 벽면에는 마감을 넣지 않았다.** 창틀(상식 보완 품목)이 덮는 자리다. 도면 모드는 상식 보완 품목을 숨기므로 그때는 맨 벽면이 보인다. 실사 모드에서는 보이지 않는다.
+- **커텐박스의 홈은 상식 보완 품목을 숨겨도 닫혀 있게 했다**(연구동 1F, 2F). 중앙 벽의 천장 위 부분을 벽 품목에 더했다. 그 두께는 가정이다.
 - 장애인용 칸의 기구, 슬라이딩 도어, 소변기 칸막이, 커텐박스, 창틀은 공유 부품 `src/data/parts_extra.ts` 로 만들었다.
 
 ## 5. 알려진 한계와 남은 일
