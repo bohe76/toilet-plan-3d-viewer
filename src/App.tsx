@@ -25,6 +25,13 @@ const ARROWS: Record<string, [number, number]> = {
   ArrowUp: [0, 1],
   ArrowDown: [0, -1],
 };
+/** 화살표 키와 같은 이동을 하는 글자 키. 한글 입력 상태에서도 듣게 글자가 아니라 키 자리(code)로 본다. */
+const WASD: Record<string, [number, number]> = {
+  KeyA: [-1, 0],
+  KeyD: [1, 0],
+  KeyW: [0, 1],
+  KeyS: [0, -1],
+};
 
 const BUILDINGS = ['강의동', '연구동'] as const;
 const DEFAULT_CEILING = 2550;
@@ -234,7 +241,7 @@ export function App() {
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       // 조작법 창이 떠 있으면 뷰어의 단축키를 쓰지 않는다. Esc는 창(dialog)이 받아서 창만 닫는다.
       if (helpOpen) return;
-      const arrow = ARROWS[e.key];
+      const arrow = ARROWS[e.key] ?? WASD[e.code];
       if (arrow) {
         // 원본 도면을 볼 때는 화면을 옮기지 않는다.
         // Tab 키로 슬라이더에 들어가 있으면 화살표는 슬라이더 값을 바꾼다.
@@ -463,7 +470,7 @@ export function App() {
             <div className="spinner" />
           </div>
         )}
-        <div className="pan-pad" title="화면 이동 (화살표 키와 같음 · Shift: 빠르게)">
+        <div className="pan-pad" title="화면 이동 (화살표 키 · WASD와 같음 · Shift: 빠르게)">
           <button className="up" onClick={(e) => move(0, 1, e.shiftKey)} aria-label="앞으로 이동">▲</button>
           <button className="left" onClick={(e) => move(-1, 0, e.shiftKey)} aria-label="왼쪽으로 이동">◀</button>
           <button className="right" onClick={(e) => move(1, 0, e.shiftKey)} aria-label="오른쪽으로 이동">▶</button>

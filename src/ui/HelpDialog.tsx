@@ -99,7 +99,7 @@ export function HelpDialog({ open, onClose }: { open: boolean; onClose: () => vo
             ))}
           </tbody>
         </table>
-        <p className="help-keys">화살표: 이동 (Shift: 빠르게) · 1~8: 탭 · F: 맞춤 · Esc: 선택 해제</p>
+        <p className="help-keys">화살표 · WASD: 이동 (Shift: 빠르게) · 1~8: 탭 · F: 맞춤 · Esc: 선택 해제</p>
         <div className="help-foot">
           <label className="help-check">
             <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
