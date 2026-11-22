@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CircleQuestionMark } from 'lucide-react';
 import { sheets } from './data/sheets';
 import type { LayerId } from './data/types';
 import type { PathTraceStatus } from './scene/PathTracer';
@@ -254,7 +255,8 @@ export function App() {
         const id = sheets[Number(e.key) - 1].id;
         if (id !== tabId) selectSheet(id);
       }
-      else if (e.key === 'f' || e.key === 'F') fit();
+      // WASD처럼 키 자리로 본다. 한글 입력 상태에서는 e.key가 「ㄹ」이다.
+      else if (e.code === 'KeyF') fit();
       else if (e.key === 'Escape') {
         // 고품질 렌더 중의 Esc는 스위치를 끈다. 원본 도면이 열려 있으면 그것만 닫는다.
         if (tracing && !originalOpen) turnOffHq();
@@ -430,12 +432,14 @@ export function App() {
             </button>
           )}
           <button
+            className="with-icon"
             onClick={() => {
               // 조작법 창이 화면을 덮는 동안에는 고품질 렌더를 돌리지 않는다.
               stopTrace();
               setHelpOpen(true);
             }}
           >
+            <CircleQuestionMark size={14} aria-hidden="true" />
             조작법
           </button>
         </div>

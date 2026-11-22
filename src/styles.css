@@ -110,6 +110,8 @@ p { margin: 4px 0; line-height: 1.5; }
 .toolbar { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 4px; z-index: 6; font-size: var(--font-ui); --btn-bg: var(--bg-float); }
 /* 초점이 있을 때는 초점 링(button:focus-visible)의 그림자를 쓴다. */
 .toolbar button:not(:focus-visible), .pan-pad button:not(:focus-visible) { box-shadow: var(--shadow-float); }
+/* 글자 앞에 아이콘을 두는 버튼(조작법). */
+.toolbar button.with-icon { display: inline-flex; align-items: center; gap: 5px; }
 .segmented { display: flex; gap: 2px; }
 .segmented button { flex: 1; border-radius: 0; }
 .segmented button:first-child { border-radius: 4px 0 0 4px; }
