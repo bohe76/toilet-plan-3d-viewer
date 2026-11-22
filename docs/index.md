@@ -6,6 +6,7 @@
 |---|---|---|
 | `handover/` | [session_handover.md](handover/session_handover.md) | 현재 상태, 미검증 항목, 다음 작업 순서, 환경 문제 |
 | `spec/` | [viewer_spec.md](spec/viewer_spec.md) | 확정된 방식과 범위, 기능, 화면 배치, 마우스 동작 |
+| `plans/` | [viewer_ux_theme_plan.md](plans/viewer_ux_theme_plan.md) | 뷰어 조작 5건과 어두운 테마의 구현 계획. 보헤님 승인, 구현 전 |
 | `drawings/` | [sheet_index.md](drawings/sheet_index.md) | 도면 8장 목록, 탭 매핑, 스캔 특성 |
 | `drawings/` | `<탭>_measurements.md` 8개 | 탭마다의 측정값, 좌표 환산, 판독 메모. [강의동 2F](drawings/lecture_2f_measurements.md), [3F](drawings/lecture_3f_measurements.md), [4F](drawings/lecture_4f_measurements.md), [연구동 1F](drawings/research_1f_measurements.md), [2F](drawings/research_2f_measurements.md), [3F(파일럿)](drawings/research_3f_measurements.md), [4F](drawings/research_4f_measurements.md), [5F](drawings/research_5f_measurements.md) |
 | `guides/` | [measurement_workflow.md](guides/measurement_workflow.md) | 스캔 도면에서 좌표를 얻는 절차, 독립 검수 절차 |
