@@ -67,13 +67,14 @@ export function HelpDialog({ open, onClose }: { open: boolean; onClose: () => vo
       }}
       // 막(::backdrop)을 누르면 dialog 자체가 대상이다. 막 위에서 누르고 막 위에서 뗐을 때만 닫는다.
       // click의 대상은 누른 곳과 뗀 곳의 공통 조상이라, 뗀 곳은 좌표가 창 밖인지로 본다(dialog의 여백이 0이다).
+      // 키보드로 낸 click은 좌표가 (0, 0)이라 창 밖으로 보인다. 대상이 dialog 자체일 때만 닫아 이 경우를 거른다.
       onPointerDown={(e) => {
         pressedOnBackdrop.current = e.target === e.currentTarget;
       }}
       onClick={(e) => {
         const r = e.currentTarget.getBoundingClientRect();
         const releasedOutside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
-        if (pressedOnBackdrop.current && releasedOutside) e.currentTarget.close();
+        if (pressedOnBackdrop.current && e.target === e.currentTarget && releasedOutside) e.currentTarget.close();
         pressedOnBackdrop.current = false;
       }}
     >
