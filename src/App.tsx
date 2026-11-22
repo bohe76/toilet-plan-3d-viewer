@@ -3,6 +3,8 @@ import { sheets } from './data/sheets';
 import type { LayerId } from './data/types';
 import type { PathTraceStatus } from './scene/PathTracer';
 import { Viewport, type PanRequest, type RenderMode, type ViewMode } from './scene/Viewport';
+import { HelpDialog, readHelpHidden } from './ui/HelpDialog';
+import { EyeToggle } from './ui/EyeToggle';
 import { ItemInfo, SheetInfo } from './ui/InfoPanel';
 import { LAYERS } from './ui/labels';
 
@@ -26,18 +28,18 @@ const ARROWS: Record<string, [number, number]> = {
 
 const BUILDINGS = ['강의동', '연구동'] as const;
 const DEFAULT_CEILING = 2550;
-const PILOT_ID = 'research-3f';
 /** 화면이 멈춘 뒤 고품질 렌더를 시작할 때까지 기다리는 시간(ms) */
 const HQ_DELAY_MS = 1500;
 /** 로딩 스피너를 지우는 시간 제한(ms). 스캔 도면 이미지를 받지 못해도 스피너가 남지 않게 한다. */
 const LOADING_TIMEOUT_MS = 30000;
 
 // URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200&dim=1&mode=plan&added=0&hq=1
+// sheet 인자가 없으면 첫 탭(강의동 2F 여)으로 시작한다(보헤님 지시, 2026-11-22).
 // 처음 화면은 실사 모드다(보헤님 지시, 2026-11-21). mode=plan 은 도면 모드로 시작한다. 모델이 없는 탭은 도면 모드만 쓴다.
 // hq=1 은 고품질 렌더 스위치를 켠 채로 시작한다.
 // added 인자가 없으면 상식 보완 품목은 실사 모드에서만 보인다. added=0 은 두 모드 모두 숨기고, added=1 은 두 모드 모두 보인다.
 const params = new URLSearchParams(window.location.search);
-const initialSheet = sheets.find((s) => s.id === (params.get('sheet') ?? PILOT_ID)) ?? sheets[0];
+const initialSheet = sheets.find((s) => s.id === params.get('sheet')) ?? sheets[0];
 const paramView = params.get('view');
 const initialView: ViewMode = !initialSheet.model || paramView === 'top' ? 'top' : paramView === 'eye' ? 'eye' : 'iso';
 // 절단 높이의 기본은 탭의 천장고(슬라이더의 최대값)다(보헤님 결정, 2026-11-22). Infinity는 effectiveCut에서 천장고가 된다.
@@ -82,6 +84,8 @@ export function App() {
   /** 화면 구성이나 시점이 바뀐 횟수. 바뀔 때마다 고품질 렌더의 시작 대기를 처음부터 다시 센다. */
   const [activity, setActivity] = useState(0);
   const [originalOpen, setOriginalOpen] = useState(false);
+  /** 조작법 창. 「다시 보지 않기」를 저장하지 않았으면 처음 접속 때 띄운다. */
+  const [helpOpen, setHelpOpen] = useState(() => !readHelpHidden());
   const [originalZoom, setOriginalZoom] = useState(1);
   const cursorText = useRef<HTMLSpanElement>(null);
 
@@ -144,9 +148,9 @@ export function App() {
   // 스위치가 켜져 있으면 화면이 멈추고 HQ_DELAY_MS 뒤에 고품질 렌더를 시작한다.
   // 평면 뷰, 품목을 선택한 동안, 원본 도면을 보는 동안, 시점을 움직이는 동안에는 시작하지 않는다.
   // 완료나 오류 상태에서는 다시 시작하지 않는다(trace가 남아 있다).
-  // 로딩 스피너가 떠 있는 동안에도 시작하지 않는다.
+  // 로딩 스피너나 조작법 창이 떠 있는 동안에도 시작하지 않는다.
   const loading = waitTick !== null;
-  const canTrace = real && hq && view !== 'top' && selectedId === null && !originalOpen && !dragging && !loading;
+  const canTrace = real && hq && view !== 'top' && selectedId === null && !originalOpen && !helpOpen && !dragging && !loading;
   const idle = trace === null;
   useEffect(() => {
     if (!canTrace || !idle) return;
@@ -228,6 +232,8 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       // Alt+←, Ctrl+F 같은 브라우저 단축키는 그대로 둔다.
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      // 조작법 창이 떠 있으면 뷰어의 단축키를 쓰지 않는다. Esc는 창(dialog)이 받아서 창만 닫는다.
+      if (helpOpen) return;
       const arrow = ARROWS[e.key];
       if (arrow) {
         // 원본 도면을 볼 때는 화면을 옮기지 않는다.
@@ -251,7 +257,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectSheet, fit, move, originalOpen, tracing, turnOffHq, tabId]);
+  }, [selectSheet, fit, move, originalOpen, helpOpen, tracing, turnOffHq, tabId]);
 
   return (
     <div className="app">
@@ -307,37 +313,34 @@ export function App() {
         <section className="card">
           <h3>레이어</h3>
           {LAYERS.map((layer) => (
-            <label key={layer.id} className="check">
-              <input
-                type="checkbox"
-                checked={layers[layer.id]}
-                // 마감은 실사 모드에서만, 치수는 도면 모드에서만 그린다.
-                disabled={!sheet.model || (layer.id === 'finish' && !real) || (layer.id === 'dim' && real)}
-                onChange={(e) => {
-                  stopTrace();
-                  setLayers((prev) => ({ ...prev, [layer.id]: e.target.checked }));
-                }}
-              />
-              {layer.label}
-            </label>
-          ))}
-          <label className="check" title="도면에 없지만 상식적으로 있어야 해서 넣은 품목 · 값은 모두 가정">
-            <input
-              type="checkbox"
-              checked={showAdded}
-              disabled={!sheet.model}
+            <EyeToggle
+              key={layer.id}
+              checked={layers[layer.id]}
+              // 마감은 실사 모드에서만, 치수는 도면 모드에서만 그린다.
+              disabled={!sheet.model || (layer.id === 'finish' && !real) || (layer.id === 'dim' && real)}
               onChange={(e) => {
                 stopTrace();
-                setSelectedId(null);
-                setAddedByMode((prev) => ({ ...prev, [real ? 'real' : 'plan']: e.target.checked }));
+                setLayers((prev) => ({ ...prev, [layer.id]: e.target.checked }));
               }}
-            />
+            >
+              {layer.label}
+            </EyeToggle>
+          ))}
+          <EyeToggle
+            title="도면에 없지만 상식적으로 있어야 해서 넣은 품목 · 값은 모두 가정"
+            checked={showAdded}
+            disabled={!sheet.model}
+            onChange={(e) => {
+              stopTrace();
+              setSelectedId(null);
+              setAddedByMode((prev) => ({ ...prev, [real ? 'real' : 'plan']: e.target.checked }));
+            }}
+          >
             상식 보완 품목
-          </label>
-          <label className="check">
-            <input type="checkbox" checked={underlayVisible} disabled={real} onChange={(e) => setUnderlayVisible(e.target.checked)} />
+          </EyeToggle>
+          <EyeToggle checked={underlayVisible} disabled={real} onChange={(e) => setUnderlayVisible(e.target.checked)}>
             바닥 도면
-          </label>
+          </EyeToggle>
         </section>
 
         <section className="card">
@@ -419,6 +422,15 @@ export function App() {
               고품질 렌더 {hq ? '켜짐' : '꺼짐'}
             </button>
           )}
+          <button
+            onClick={() => {
+              // 조작법 창이 화면을 덮는 동안에는 고품질 렌더를 돌리지 않는다.
+              stopTrace();
+              setHelpOpen(true);
+            }}
+          >
+            조작법
+          </button>
         </div>
         {/* 소프트웨어 렌더링이면 고품질 렌더 스위치가 켜져 있는 동안 진행 막대 자리에 안내를 둔다. 렌더는 막지 않는다. */}
         {((tracing && trace) || slowGl) && (
@@ -479,14 +491,11 @@ export function App() {
       </aside>
 
       <footer className="status">
-        <span>{sheet.title}</span>
-        <span>축척 1/50 (A3)</span>
-        <span ref={cursorText}>X – · Y – mm</span>
-        <span className="hint">
-          {view === 'eye'
-            ? '왼쪽 드래그: 둘러보기 · 휠: 앞뒤 이동 · 화살표: 이동 (Shift 빠르게) · 클릭: 선택 · 더블클릭: 그 지점으로 이동 · 1~8: 탭 · F: 맞춤'
-            : `${view === 'top' ? '왼쪽 드래그: 이동' : '왼쪽 드래그: 회전 · 오른쪽 드래그: 이동'} · 휠: 확대 · 화살표: 이동 (Shift 빠르게) · 클릭: 선택 · 더블클릭: 초점 · 1~8: 탭 · F: 맞춤`}
+        <span className="status-center">
+          <span>{sheet.title}</span>
+          <span>축척 1/50 (A3)</span>
         </span>
+        <span className="status-cursor" ref={cursorText}>X – · Y – mm</span>
       </footer>
 
       {originalOpen && (
@@ -503,6 +512,8 @@ export function App() {
           </div>
         </div>
       )}
+
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

@@ -66,7 +66,7 @@ export function SheetInfo({ sheet }: { sheet: Sheet }) {
             <span className="badge drawn">도면 표기</span> 도면에 적힌 치수
           </p>
           <p>
-            <span className="badge scaled">축척 환산</span> 도면의 선 위치를 축척으로 환산한 값
+            <span className="badge scaled">축척 환산</span> 도면의 선 위치로 환산한 값
           </p>
           <p>
             <span className="badge assumed">가정</span> 도면에 없어서 가정한 값

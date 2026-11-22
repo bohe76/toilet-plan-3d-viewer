@@ -8,20 +8,16 @@
   --bg-base: #202020;
   --bg-main: #272727;
   --bg-card: #323232;
-  --bg-selected: #2d2d2d;
   --bg-float: #2c2c2c;
   --text: #ffffff;
   --text-sub: #d0d0d0;
   --text-off: #7d7d7d;
-  --accent: #76b9ed;
+  --accent: #5ab4ff;
   --on-accent: #000000;
-  --switch-off: #cfcfcf;
   /* 표에 없어서 정한 값 */
   --bg-control: #3c3c3c;
   --bg-control-hover: #474747;
-  --accent-hover: #8fc6f0;
-  --bg-tab-hover: #282828;
-  --bg-tab-selected-hover: #333333;
+  --accent-hover: #7cc4ff;
   --bg-note: #2a2a2a;
   --bg-notice: #45391c;
   --badge-drawn-bg: #1f3d2a;
@@ -35,13 +31,18 @@
   --focus-outer: #000000;
   /* 반투명 색. RGB는 위의 원색 변수와 같다. color-mix()를 모르는 브라우저에서도 그려지게 rgba로 둔다. */
   --bg-main-60: rgba(39, 39, 39, 0.6);
-  --accent-25: rgba(118, 185, 237, 0.25);
+  --accent-25: rgba(90, 180, 255, 0.25);
   --bg-float-85: rgba(44, 44, 44, 0.85);
+  /* 조작법 창 뒤의 막 */
+  --backdrop: rgba(0, 0, 0, 0.6);
+  /* 글자 크기. 본문은 12px다. 탭과 3D 화면 위의 버튼, 툴팁, 진행 막대는 13px를 유지한다(보헤님 지시, 2026-11-22). */
+  --font-body: 12px;
+  --font-ui: 13px;
 }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif; font-size: 13px; color: var(--text); background: var(--bg-base); }
+body { font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif; font-size: var(--font-body); color: var(--text); background: var(--bg-base); }
 /* 버튼은 바탕과 글자색을 한 쌍으로 정한다. 글자색을 물려받으면 흰 바탕의 흰 글자 같은 일이 생긴다. 놓이는 자리는 --btn-bg, --btn-hover로 바탕만 바꾼다. */
 button { font: inherit; cursor: pointer; border: 0; border-radius: 4px; padding: 4px 10px; background: var(--btn-bg, var(--bg-control)); color: var(--text); }
 button:hover:not(:disabled) { background: var(--btn-hover, var(--bg-control-hover)); color: var(--text); }
@@ -49,23 +50,25 @@ button:disabled { cursor: default; color: var(--text-off); }
 button.active { background: var(--accent); color: var(--on-accent); }
 button.active:hover:not(:disabled) { background: var(--accent-hover); color: var(--on-accent); }
 button:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; box-shadow: 0 0 0 5px var(--focus-outer); }
-h2 { font-size: 15px; margin: 0 0 4px; }
-h3 { font-size: 12px; margin: 14px 0 6px; color: var(--text-sub); }
+/* 글자 위계: 정보 카드 제목(h2) 14px 굵게 > 카드 제목(h3) 12px 600 보조색 > 본문 12px > 보조 12px 보조색 > 배지 11px */
+h2 { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+h3 { font-size: 12px; font-weight: 600; margin: 14px 0 6px; color: var(--text-sub); }
 p { margin: 4px 0; line-height: 1.5; }
 
 .app { height: 100%; display: grid; grid-template-columns: 200px 1fr 290px; grid-template-rows: auto 1fr auto; grid-template-areas: 'tabs tabs tabs' 'left stage right' 'status status status'; }
-.tabs { grid-area: tabs; display: flex; align-items: center; gap: 18px; padding: 8px 12px; background: var(--bg-base); --btn-bg: transparent; --btn-hover: var(--bg-tab-hover); }
-.brand { font-size: 14px; }
-.tab-group { display: flex; align-items: center; gap: 4px; }
-.tab-group-name { color: var(--text-sub); margin-right: 4px; }
-/* 선택된 탭은 강조색이 아니라 한 단계 밝은 면이다. */
-.tab.active { background: var(--bg-selected); color: var(--text); }
-.tab.active:hover:not(:disabled) { background: var(--bg-tab-selected-hover); color: var(--text); }
+/* 건물마다 탭을 둥근 판(.tab-group)에 묶는다. 판 안의 탭 사이는 좁게, 판과 판 사이는 넓게 둔다(보헤님 지시, 2026-11-22). 폭이 모자라면 판 단위로 다음 줄로 넘어간다. */
+.tabs { grid-area: tabs; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 5px 12px; font-size: var(--font-ui); background: var(--bg-base); }
+.brand { font-size: 14px; white-space: nowrap; }
+.tab-group { display: flex; align-items: center; gap: 2px; padding: 3px; padding-left: 10px; border-radius: 8px; background: var(--bg-card); --btn-bg: transparent; --btn-hover: var(--bg-control); }
+/* 건물 이름은 카드 제목(h3)과 같은 위계다. 탭(13px, --text)과 크기·굵기·색이 모두 다르다. */
+.tab-group-name { font-size: 12px; font-weight: 600; color: var(--text-sub); margin-right: 6px; white-space: nowrap; }
+/* 선택된 탭은 켜진 버튼과 같은 강조색 면이다(button.active, 보헤님 지시, 2026-11-22). */
 .tab.pending { color: var(--text-off); }
-.tab.pending.active { color: var(--text); }
+.tab.pending.active { color: var(--on-accent); }
 
 /* 좌우 패널은 본문 바탕 위에 구획마다 카드를 둔다. */
-.panel { background: var(--bg-main); padding: 8px; overflow-y: auto; }
+/* 한글은 낱말 단위로 줄을 바꾼다(「끝까/지」 같은 끊김을 막는다). 한 낱말이 칸보다 길면 그때만 끊는다. */
+.panel { background: var(--bg-main); padding: 8px; overflow-y: auto; word-break: keep-all; overflow-wrap: break-word; }
 .panel.left { grid-area: left; }
 .panel.right { grid-area: right; }
 .card { background: var(--bg-card); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
@@ -76,21 +79,22 @@ p { margin: 4px 0; line-height: 1.5; }
 .note { background: var(--bg-note); border-left: 3px solid var(--accent); border-radius: 4px; padding: 6px 8px; }
 .notice { background: var(--bg-notice); border-radius: 4px; padding: 8px; }
 
-/* 스위치. input[type=checkbox]를 그대로 두고 모양만 바꾼다. 키보드와 화면 낭독기의 동작은 그대로다. */
-.check { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-.check:has(input:disabled) { color: var(--text-off); }
-.check input[type='checkbox'] { appearance: none; flex: none; position: relative; width: 34px; height: 18px; margin: 0; border: 1px solid var(--switch-off); border-radius: 9px; background: transparent; cursor: pointer; transition: background-color 0.15s, border-color 0.15s; }
-.check input[type='checkbox']::before { content: ''; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--switch-off); transition: transform 0.15s, background-color 0.15s; }
-.check input[type='checkbox']:checked { background: var(--accent); border-color: var(--accent); }
-.check input[type='checkbox']:checked::before { transform: translateX(16px); background: var(--on-accent); }
-.check input[type='checkbox']:disabled { cursor: default; border-color: var(--text-off); }
-.check input[type='checkbox']:disabled::before { background: var(--text-off); }
-.check input[type='checkbox']:checked:disabled { background: var(--text-off); border-color: var(--text-off); }
-.check input[type='checkbox']:checked:disabled::before { background: var(--bg-card); }
-.check input[type='checkbox']:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; box-shadow: 0 0 0 5px var(--focus-outer); }
+/* 화면에서만 숨긴다. 키보드 초점과 화면 낭독기에는 남는다. */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* 보이기/숨기기 토글(Lucide 눈 아이콘, 보헤님 지시, 2026-11-22). 보이는 눈은 흰색이다. 강조색은 표시 모드와 선택된 탭에만 쓴다. */
+.eye-toggle { position: relative; display: flex; align-items: center; gap: 8px; margin: 0 -6px; padding: 3px 6px; border-radius: 4px; color: var(--text-sub); cursor: pointer; user-select: none; }
+.eye-toggle:hover:not(.disabled) { background: var(--bg-control); }
+.eye-icon { flex: none; color: var(--text-off); border-radius: 2px; }
+/* hover 바탕(--bg-control) 위에서 --text-off 눈은 대비 3에 못 미친다. hover 동안 숨김 눈을 보조 글자색으로 밝힌다. */
+.eye-toggle:hover:not(.disabled) input:not(:checked) + .eye-icon { color: var(--text-sub); }
+.eye-toggle input:checked ~ * { color: var(--text); }
+.eye-toggle.disabled { cursor: default; }
+.eye-toggle.disabled input ~ * { color: var(--text-off); }
+.eye-toggle.disabled .eye-icon { opacity: 0.45; }
+.eye-toggle input:focus-visible + .eye-icon { outline: 2px solid var(--text); outline-offset: 1px; box-shadow: 0 0 0 5px var(--focus-outer); }
 
 .dims { width: 100%; border-collapse: collapse; }
-.dims th { text-align: left; font-weight: normal; color: var(--text-sub); padding: 3px 4px 3px 0; }
+.dims th { text-align: left; font-weight: normal; padding: 3px 4px 3px 0; }
 .dims td { text-align: right; padding: 3px 0 3px 6px; white-space: nowrap; }
 .badge { display: inline-block; font-size: 11px; border-radius: 3px; padding: 0 5px; line-height: 18px; }
 .badge.drawn { background: var(--badge-drawn-bg); color: var(--badge-drawn); }
@@ -103,14 +107,14 @@ p { margin: 4px 0; line-height: 1.5; }
 .labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 /* 3D 화면 위의 버튼 묶음은 떠 있는 판이다. */
 /* z-index 6은 라벨(drei Html의 zIndexRange 0~5)보다 위, 진행 막대·툴팁(10)과 스피너(20)보다 아래다. */
-.toolbar { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 4px; z-index: 6; --btn-bg: var(--bg-float); }
+.toolbar { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 4px; z-index: 6; font-size: var(--font-ui); --btn-bg: var(--bg-float); }
 /* 초점이 있을 때는 초점 링(button:focus-visible)의 그림자를 쓴다. */
 .toolbar button:not(:focus-visible), .pan-pad button:not(:focus-visible) { box-shadow: var(--shadow-float); }
 .segmented { display: flex; gap: 2px; }
 .segmented button { flex: 1; border-radius: 0; }
 .segmented button:first-child { border-radius: 4px 0 0 4px; }
 .segmented button:last-child { border-radius: 0 4px 4px 0; }
-.trace-bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: var(--bg-float); color: var(--text); box-shadow: var(--shadow-float); padding: 6px 10px; border-radius: 4px; white-space: nowrap; z-index: 10; }
+.trace-bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: var(--bg-float); color: var(--text); box-shadow: var(--shadow-float); padding: 6px 10px; border-radius: 4px; white-space: nowrap; z-index: 10; font-size: var(--font-ui); }
 /* 그래픽 가속 꺼짐 안내가 진행 표시와 함께 있으면 두 줄로 나눈다. */
 .trace-bar.wrap { flex-wrap: wrap; justify-content: center; }
 .pan-pad { position: absolute; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(2, 30px); grid-template-areas: '. up .' 'left down right'; gap: 2px; z-index: 6; --btn-bg: var(--bg-float); }
@@ -123,11 +127,11 @@ p { margin: 4px 0; line-height: 1.5; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--bg-main-60); z-index: 20; }
 .spinner { width: 36px; height: 36px; border: 3px solid var(--accent-25); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.tooltip { position: absolute; pointer-events: none; background: var(--bg-float); color: var(--text); box-shadow: var(--shadow-float); padding: 3px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; }
+.tooltip { position: absolute; pointer-events: none; background: var(--bg-float); color: var(--text); box-shadow: var(--shadow-float); padding: 3px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; font-size: var(--font-ui); }
 /* 흰 도면 위에 놓이는 글자다. 밝은 판을 유지한다(계획 4.5). */
 .dim-label, .room-label { pointer-events: none; white-space: nowrap; user-select: none; }
 .dim-label { color: #0b63ce; background: rgba(255, 255, 255, 0.85); padding: 0 3px; font-size: 12px; }
-.room-label { color: #1f2933; background: rgba(255, 255, 255, 0.8); border: 1px solid #1f2933; padding: 1px 6px; font-weight: bold; }
+.room-label { color: #1f2933; background: rgba(255, 255, 255, 0.8); border: 1px solid #1f2933; padding: 1px 6px; font-weight: bold; font-size: var(--font-ui); }
 
 /* 원본 도면 썸네일. 구석의 「크게 보기」 판은 늘 보인다. 마우스를 올리면 판, 테두리, 크기, 커서가 함께 바뀐다(보헤님 결정, 2026-11-22). */
 .thumb { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 6px; cursor: zoom-in; transition: transform 0.15s, border-color 0.15s; --btn-bg: transparent; --btn-hover: transparent; }
@@ -138,11 +142,31 @@ p { margin: 4px 0; line-height: 1.5; }
 .thumb-badge { position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 4px; background: var(--bg-float-85); color: var(--text); font-size: 11px; line-height: 16px; transition: background-color 0.15s, color 0.15s; }
 .thumb:hover .thumb-badge { background: var(--accent); color: var(--on-accent); }
 
-.status { grid-area: status; display: flex; gap: 18px; padding: 5px 12px; background: var(--bg-base); color: var(--text-sub); }
-.status .hint { margin-left: auto; }
+/* 도면명과 축척은 가로 가운데, 커서 좌표는 오른쪽 끝이다. 3칸 격자라서 좌표의 글자 수가 바뀌어도 가운데가 흔들리지 않는다. */
+.status { grid-area: status; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); padding: 5px 12px; background: var(--bg-base); color: var(--text-sub); }
+.status-center { grid-column: 2; display: flex; gap: 18px; }
+.status-cursor { grid-column: 3; justify-self: end; font-variant-numeric: tabular-nums; }
 
 .original { position: fixed; inset: 0; background: var(--bg-base); display: flex; flex-direction: column; z-index: 100; }
-.original-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: var(--text); }
+.original-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: var(--text); font-size: var(--font-ui); }
 .original-bar strong { margin-right: auto; }
 .original-scroll { flex: 1; overflow: auto; }
 .original-scroll img { display: block; margin: 0 auto; }
+
+/* 조작법 창. 네이티브 dialog(showModal)라서 맨 위 층에 뜬다. 바깥 클릭을 받으려고 dialog 자체의 여백은 0이다. */
+.help { padding: 0; border: 0; border-radius: 8px; background: var(--bg-float); color: var(--text); box-shadow: var(--shadow-float); max-width: calc(100vw - 32px); }
+/* ::backdrop이 :root의 변수를 물려받지 못하는 브라우저(2024년 이전 판)에서는 대체값을 쓴다. */
+.help::backdrop { background: var(--backdrop, rgba(0, 0, 0, 0.6)); }
+.help-body { padding: 16px 20px; }
+.help h2 { margin-bottom: 10px; }
+.help table { border-collapse: collapse; }
+.help th, .help td { padding: 5px 12px; text-align: left; white-space: nowrap; }
+.help thead th { color: var(--text-sub); font-weight: 600; }
+.help tbody th { font-weight: normal; }
+.help tbody tr:nth-child(odd) { background: var(--bg-card); }
+.help-keys { margin: 10px 0 0; }
+.help-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+/* 「다시 보지 않기」는 브라우저 기본 체크 상자에 강조색만 준다(color-scheme: dark라 꺼진 테두리가 어두운 판 위에서 보인다). */
+.help-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.help-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.help-check input:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; box-shadow: 0 0 0 5px var(--focus-outer); }
