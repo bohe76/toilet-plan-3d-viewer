@@ -280,12 +280,12 @@ const partitions: Item[] = [
   {
     id: 'partition-front-f', layer: 'partition', name: '대변기 칸 전면 칸막이 (여)', remark: frontRemark('서측', 1400, 1499),
     shapes: frontSpans('f').map(([y0, y1]) => box(FRONT_F - PT / 2, y0, FRONT_F + PT / 2, y1, GAP, 1950)),
-    dims: [dim('벽 마감선에서 먼 면까지', 1400, 'drawn'), dim('높이', 1950, 'assumed'), dim('패널 조각', '문 경첩과 문짝 폭으로 정했다', 'scaled')],
+    dims: [dim('벽 마감선에서 먼 면까지', 1400, 'drawn'), dim('높이', 1950, 'assumed'), dim('패널 조각', '문 경첩과 문짝 폭으로 정한 값', 'scaled')],
   },
   {
     id: 'partition-front-m', layer: 'partition', name: '대변기 칸 전면 칸막이 (남)', remark: frontRemark('동측', 1450, 5635),
     shapes: frontSpans('m').map(([y0, y1]) => box(FRONT_M - PT / 2, y0, FRONT_M + PT / 2, y1, GAP, 1950)),
-    dims: [dim('벽 마감선에서 먼 면까지', 1450, 'drawn'), dim('높이', 1950, 'assumed'), dim('패널 조각', '문 경첩과 문짝 폭으로 정했다', 'scaled')],
+    dims: [dim('벽 마감선에서 먼 면까지', 1450, 'drawn'), dim('높이', 1950, 'assumed'), dim('패널 조각', '문 경첩과 문짝 폭으로 정한 값', 'scaled')],
   },
   urinalScreens('m', C_E, [945, 1920, 2895], 0, 450, 1250, 400, {
     name: '소변기 칸막이 (남)', note: '12mm 지정 칸막이 (450x1,250 - 3개소)',

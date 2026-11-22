@@ -10,6 +10,7 @@ import { DRAW_COLORS, LAYER_MATERIAL, NO_SHADOW, realMaterial, type Highlight } 
 import { setTileOrigin } from './textures';
 import { GUIDE_ONLY, PathTracer, TRACE_ONLY, type PathTraceStatus } from './PathTracer';
 import { RealStage } from './RealStage';
+import { isSoftwareRenderer } from './softwareGl';
 
 export type ViewMode = 'top' | 'iso' | 'eye';
 /** plan=도면 모드(스캔 도면 겹침, 검수용), real=실사 모드 */
@@ -46,11 +47,33 @@ export interface ViewportProps {
   onSelect: (id: string | null) => void;
   onCursor: (x: number, y: number) => void;
   onFit: () => void;
+  /** 화면 이동 요청. 눈높이 뷰의 휠이 화살표 키와 같은 이동을 요청한다. */
+  onMove: (dx: number, dy: number, fast: boolean) => void;
+  /** 장면 전환 번호. 바뀌면 새 장면의 첫 화면을 기다린다. */
+  sceneTick: number;
+  /** 장면 전환 번호 sceneTick의 첫 화면을 그렸다. 도면 모드에서 바닥 도면을 보이는 설정이면 스캔 도면까지 그린 뒤다. */
+  onReady: (tick: number) => void;
+  /** 소프트웨어 렌더링(브라우저의 그래픽 가속 꺼짐)으로 판별했다. */
+  onSoftwareGl: () => void;
 }
 
 /** 화살표 키 한 번에 움직이는 거리(m). Shift를 누르면 FAST_STEP이다. */
 const PAN_STEP = 0.25;
 const FAST_STEP = 1;
+/** 눈높이 뷰의 주시점은 카메라의 이만큼(m) 앞에 둔다. 조작기가 이 점을 축으로 돌면 카메라는 제자리에서 고개를 돌린다. */
+const EYE_LEAD = 0.01;
+/**
+ * 눈높이 뷰의 드래그 감도. 조작기는 화면 높이만큼 끌면 360° × 이 값만큼 돌린다. 크기는 세로 시야각(45°)에 맞춘다.
+ * 음수다. 화면을 잡고 끄는 방향(오른쪽으로 끌면 그림이 오른쪽으로 따라온다)이 되는 부호를 끌기 실험으로 정했다.
+ */
+const EYE_ROTATE_SPEED = -45 / 360;
+/** 눈높이 뷰의 더블클릭. 찍은 점이 이 높이(m) 이하면 바닥으로 보고 그 점 위에 선다. 높으면 그 점의 EYE_STOP(m) 앞에서 멈춘다. */
+const FLOOR_PICK = 0.1;
+const EYE_STOP = 1;
+/** 눈높이 뷰의 휠. 트랙패드는 작은 값을 여러 번 보낸다. 누적해서 이만큼(px)마다 한 걸음을 뗀다. 마우스 휠 한 칸이 100px다. */
+const WHEEL_STEP = 100;
+/** 줄 단위 휠(deltaMode 1)의 줄 하나를 픽셀로 바꾼 값. Windows 기본값(한 칸 = 3줄)에서 한 칸이 한 걸음이 된다. */
+const WHEEL_LINE = WHEEL_STEP / 3;
 
 const noRaycast = () => null;
 
@@ -226,8 +249,10 @@ function ItemGroup({ item, cut, real, tracing, selected, onSelect, onHover, onFo
         onHover(null);
       }}
       onClick={(e) => {
+        // 전파는 여기서 끊는다. 끊지 않으면 뒤의 바닥판이 받아서 선택을 푼다.
         e.stopPropagation();
-        onSelect(item.id);
+        // 끌다가 뗀 것은 선택하지 않는다. delta는 누른 점과 뗀 점의 화면 거리(px)다. 2px 기준은 R3F의 onPointerMissed와 같다.
+        if (e.delta <= 2) onSelect(item.id);
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -249,13 +274,24 @@ function ItemGroup({ item, cut, real, tracing, selected, onSelect, onHover, onFo
   );
 }
 
-function UnderlayImage({ url, width, depth, opacity }: { url: string; width: number; depth: number; opacity: number }) {
+interface UnderlayImageProps {
+  url: string;
+  width: number;
+  depth: number;
+  opacity: number;
+  /** 스캔 도면 이미지를 받아서 장면에 올렸다. */
+  onLoad: (url: string) => void;
+}
+
+function UnderlayImage({ url, width, depth, opacity, onLoad }: UnderlayImageProps) {
   const maxAnisotropy = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
   const texture = useTexture(url, (loaded) => {
     loaded.colorSpace = THREE.SRGBColorSpace;
     loaded.anisotropy = maxAnisotropy;
     loaded.needsUpdate = true;
   });
+  // 이미지를 받기 전에는 Suspense가 이 컴포넌트를 올리지 않는다. 한 번 받은 이미지는 바로 올라온다.
+  useEffect(() => onLoad(url), [onLoad, url]);
   return (
     <mesh position={[0, 0, -0.004]} raycast={noRaycast}>
       <planeGeometry args={[width, depth]} />
@@ -271,11 +307,12 @@ interface FloorProps {
   underlayOpacity: number;
   onCursor: (x: number, y: number) => void;
   onSelect: (id: string | null) => void;
-  onFit: () => void;
+  onDoubleClick: (point: THREE.Vector3) => void;
+  onImageLoad: (url: string) => void;
 }
 
 /** 도면 한 장 크기의 바닥판. 도면 모드는 스캔 도면을 mm 좌표에 맞춰 깐다. 실사 모드는 실 바깥의 바닥이 된다. */
-function Floor({ sheet, real, underlayVisible, underlayOpacity, onCursor, onSelect, onFit }: FloorProps) {
+function Floor({ sheet, real, underlayVisible, underlayOpacity, onCursor, onSelect, onDoubleClick, onImageLoad }: FloorProps) {
   const cal = sheet.calibration ?? defaultCalibration;
   const width = cal.workSize[0] * cal.mmPerPx * M;
   const mmPerPxY = cal.mmPerPxY ?? cal.mmPerPx;
@@ -284,8 +321,11 @@ function Floor({ sheet, real, underlayVisible, underlayOpacity, onCursor, onSele
   const cz = (cal.workSize[1] / 2 - cal.originPx[1]) * mmPerPxY * M;
   const handlers = {
     onPointerMove: (e: { point: THREE.Vector3 }) => onCursor(e.point.x / M, e.point.z / M),
-    onClick: () => onSelect(null),
-    onDoubleClick: onFit,
+    // 끌다가 뗀 것은 선택을 풀지 않는다(품목의 onClick과 같다).
+    onClick: (e: { delta: number }) => {
+      if (e.delta <= 2) onSelect(null);
+    },
+    onDoubleClick: (e: { point: THREE.Vector3 }) => onDoubleClick(e.point.clone()),
   };
   if (real) {
     // 실 바깥(복도)의 마감은 도면에 없다. 중립 회색 바닥으로 둔다. 실 안의 바닥 마감보다 30mm 아래다.
@@ -304,7 +344,7 @@ function Floor({ sheet, real, underlayVisible, underlayOpacity, onCursor, onSele
       </mesh>
       {underlayVisible && (
         <Suspense fallback={null}>
-          <UnderlayImage url={sheet.image} width={width} depth={depth} opacity={underlayOpacity} />
+          <UnderlayImage url={sheet.image} width={width} depth={depth} opacity={underlayOpacity} onLoad={onImageLoad} />
         </Suspense>
       )}
     </group>
@@ -342,6 +382,23 @@ function FlatTone() {
   return null;
 }
 
+/**
+ * 장면 전환 뒤의 첫 화면을 알린다. 전환마다 새로 올린다(key).
+ * useFrame은 그리기 전에 불린다. 두 번째로 불릴 때 첫 화면이 그려져 있다.
+ * 실사 모드는 화면이 바뀔 때만 그리므로 올라올 때와 첫 프레임에서 한 번씩 다시 그리게 한다.
+ */
+function FrameWatch({ tick, onReady }: { tick: number; onReady: (tick: number) => void }) {
+  const invalidate = useThree((s) => s.invalidate);
+  const frames = useRef(0);
+  useEffect(() => invalidate(), [invalidate]);
+  useFrame(() => {
+    frames.current += 1;
+    if (frames.current === 1) invalidate();
+    else if (frames.current === 2) onReady(tick);
+  });
+  return null;
+}
+
 interface CameraRigProps {
   sheet: Sheet;
   view: ViewMode;
@@ -352,13 +409,36 @@ interface CameraRigProps {
   onDrag: (active: boolean) => void;
   /** 카메라가 천장보다 높이 있는지 알린다. 바뀔 때만 부른다. */
   onAbove: (above: boolean) => void;
+  onMove: (dx: number, dy: number, fast: boolean) => void;
 }
 
-function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAbove }: CameraRigProps) {
+function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAbove, onMove }: CameraRigProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const camera = useThree((s) => s.camera);
+  const gl = useThree((s) => s.gl);
   const get = useThree((s) => s.get);
   const invalidate = useThree((s) => s.invalidate);
+
+  // 검사 도구가 카메라를 읽는 훅(window.__cam). 개발 모드에서만 둔다. 빌드 결과물에는 들어가지 않는다.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      const target = window as Window & { __cam?: () => unknown };
+      target.__cam = () => {
+        camera.updateMatrixWorld();
+        const direction = camera.getWorldDirection(new THREE.Vector3());
+        return {
+          view,
+          position: camera.position.toArray(),
+          direction: direction.toArray(),
+          pitchDeg: THREE.MathUtils.radToDeg(Math.asin(direction.y)),
+          target: controls.current?.target.toArray() ?? null,
+        };
+      };
+      return () => {
+        delete target.__cam;
+      };
+    }
+  }, [camera, view]);
   const handledFocus = useRef(0);
   const handledPan = useRef(pan?.tick ?? 0);
 
@@ -382,8 +462,13 @@ function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAb
     sized.current = true;
   }, [width, height, dpr, onInterrupt]);
 
+  // 눈높이 뷰의 카메라 높이(m). 아래 onChange가 읽는다.
+  // 탭을 바꾼 commit의 ctl.update()는 직전 렌더의 onChange를 부른다(drei는 리스너를 useEffect에서 다시 단다). 그래서 렌더 값 대신 ref를 쓰고, 카메라를 놓기 전에 갱신한다.
+  const eyeY = useRef<number | null>(null);
+
   // 뷰, 탭, 맞춤 요청이 바뀌면 카메라를 기본 위치로 옮긴다.
   useLayoutEffect(() => {
+    eyeY.current = view === 'eye' && sheet.model ? sheet.model.eye.from[2] * M : null;
     const ctl = controls.current;
     const isOrtho = (camera as THREE.OrthographicCamera).isOrthographicCamera === true;
     if (!ctl || isOrtho !== (view === 'top')) return;
@@ -400,7 +485,8 @@ function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAb
     } else if (view === 'eye' && sheet.model) {
       const { from, to } = sheet.model.eye;
       camera.position.set(from[0] * M, from[2] * M, from[1] * M);
-      ctl.target.set(to[0] * M, to[2] * M, to[1] * M);
+      const ahead = new THREE.Vector3(to[0] * M, to[2] * M, to[1] * M).sub(camera.position).normalize();
+      ctl.target.copy(camera.position).addScaledVector(ahead, EYE_LEAD);
     } else {
       const r = Math.max(w, d);
       const [dx, dz] = sheet.model?.isoDir ?? [1, 1];
@@ -413,15 +499,45 @@ function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAb
   }, [camera, get, invalidate, sheet, view, fitTick]);
 
   // 더블클릭한 지점으로 주시점을 옮긴다. 카메라와의 상대 위치는 유지한다.
+  // 눈높이 뷰는 그 지점으로 걸어간다. 높이와 보는 방향은 유지한다.
   useEffect(() => {
     const ctl = controls.current;
     if (!focus || !ctl || focus.tick === handledFocus.current) return;
     handledFocus.current = focus.tick;
-    camera.position.add(focus.point.clone().sub(ctl.target));
-    ctl.target.copy(focus.point);
+    if (view === 'eye') {
+      const way = new THREE.Vector3(focus.point.x - camera.position.x, 0, focus.point.z - camera.position.z);
+      // 높은 곳(품목)은 그 점의 EYE_STOP 앞에서 멈춘다. 이미 그보다 가까우면 움직이지 않는다(뒤로 걷지 않는다).
+      if (focus.point.y > FLOOR_PICK) way.setLength(Math.max(way.length() - EYE_STOP, 0));
+      camera.position.add(way);
+      ctl.target.add(way);
+    } else {
+      camera.position.add(focus.point.clone().sub(ctl.target));
+      ctl.target.copy(focus.point);
+    }
     ctl.update();
     invalidate();
-  }, [focus, camera, invalidate]);
+  }, [focus, view, camera, invalidate]);
+
+  // 눈높이 뷰의 휠은 확대 대신 앞뒤로 걷는다. 한 칸이 화살표 키 한 번이다.
+  useEffect(() => {
+    if (view !== 'eye') return;
+    const canvas = gl.domElement;
+    let pending = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const dy = e.deltaMode === 1 ? e.deltaY * WHEEL_LINE : e.deltaY;
+      if (dy === 0) return;
+      // 방향이 바뀌면 모아 둔 값을 버린다.
+      if (Math.sign(dy) !== Math.sign(pending)) pending = 0;
+      pending += dy;
+      const steps = Math.trunc(pending / WHEEL_STEP);
+      if (steps === 0) return;
+      pending -= steps * WHEEL_STEP;
+      onMove(0, -steps, false);
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [view, gl, onMove]);
 
   // 화살표 키와 이동 버튼. 카메라와 주시점을 함께 옮긴다. 높이는 바꾸지 않는다.
   useEffect(() => {
@@ -446,23 +562,40 @@ function CameraRig({ sheet, view, fitTick, focus, pan, onInterrupt, onDrag, onAb
   }, [pan, view, camera, invalidate]);
 
   const top = view === 'top';
+  // 눈높이 뷰는 제자리에서 고개를 돌린다. 주시점이 카메라의 EYE_LEAD 앞에 있다. 확대와 이동은 끈다.
+  const eye = view === 'eye';
   return (
     <OrbitControls
       key={view}
       ref={controls}
       makeDefault
       zoomToCursor
-      // 시점이 실제로 움직였을 때만 고품질 렌더를 끝낸다. 누르기만 한 클릭은 렌더를 버리지 않는다.
-      onChange={onInterrupt}
+      onChange={() => {
+        // 눈높이 뷰의 조작기는 카메라를 주시점 둘레의 작은 구면 위로 돌린다. 카메라와 주시점을 같이 옮겨서 눈높이를 그대로 둔다.
+        const ctl = controls.current;
+        if (eyeY.current !== null && ctl) {
+          const dy = eyeY.current - camera.position.y;
+          camera.position.y += dy;
+          ctl.target.y += dy;
+        }
+        // 시점이 실제로 움직였을 때만 고품질 렌더를 끝낸다. 누르기만 한 클릭은 렌더를 버리지 않는다.
+        onInterrupt();
+      }}
       onStart={() => onDrag(true)}
       onEnd={() => onDrag(false)}
       enableDamping={false}
       enableRotate={!top}
-      maxPolarAngle={top ? Math.PI : Math.PI / 2 - 0.01}
+      enableZoom={!eye}
+      enablePan={!eye}
+      rotateSpeed={eye ? EYE_ROTATE_SPEED : 1}
+      // 극각은 「카메라 − 주시점」의 각이다. 눈높이 뷰에서 30°는 아래 60°, 150°는 위 60°를 보는 각이다.
+      minPolarAngle={eye ? Math.PI / 6 : 0}
+      maxPolarAngle={top ? Math.PI : eye ? (Math.PI * 5) / 6 : Math.PI / 2 - 0.01}
       mouseButtons={{
         LEFT: top ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN,
+        // 눈높이 뷰는 오른쪽 버튼을 확대(꺼짐)에 둔다. 이동에 두면 Shift·Ctrl과 함께 누를 때 회전이 된다.
+        RIGHT: eye ? THREE.MOUSE.DOLLY : THREE.MOUSE.PAN,
       }}
     />
   );
@@ -472,6 +605,8 @@ export function Viewport(props: ViewportProps) {
   const { sheet, view, layers, cutHeight, selectedId, onSelect } = props;
   const [focus, setFocus] = useState<{ point: THREE.Vector3; tick: number } | null>(null);
   const [hoverName, setHoverName] = useState<string | null>(null);
+  /** 마지막으로 장면에 올린 스캔 도면 이미지의 주소 */
+  const [loadedImage, setLoadedImage] = useState<string | null>(null);
   const tooltip = useRef<HTMLDivElement>(null);
   // 치수와 실명 라벨(drei Html)을 붙이는 곳이다. 한 곳으로 고정한다.
   // 고정하지 않으면 캔버스 초기화 중에 붙이는 곳이 한 번 바뀐다. 그때 라벨을 떼었다 다시 붙이면서 removeChild 오류가 난다.
@@ -502,6 +637,13 @@ export function Viewport(props: ViewportProps) {
     [model, layers, props.showAdded, real],
   );
 
+  const focusAt = (point: THREE.Vector3) => {
+    props.onInterrupt();
+    setFocus((prev) => ({ point, tick: (prev?.tick ?? 0) + 1 }));
+  };
+  // 도면 모드에서 바닥 도면을 보이는 설정이면 스캔 도면이 뜬 뒤에 첫 화면을 센다.
+  const imageReady = real || !props.underlayVisible || loadedImage === sheet.image;
+
   return (
     <div
       ref={setOverlay}
@@ -515,7 +657,19 @@ export function Viewport(props: ViewportProps) {
       }}
     >
       {/* 실사 모드는 화면이 바뀔 때만 다시 그린다. 광원, 그림자, 거울 반사가 무겁다. */}
-      <Canvas flat={!real} shadows={real} frameloop={real ? 'demand' : 'always'} dpr={[1, 2]} onPointerMissed={() => onSelect(null)}>
+      <Canvas
+        flat={!real}
+        shadows={real}
+        frameloop={real ? 'demand' : 'always'}
+        dpr={[1, 2]}
+        onPointerMissed={() => onSelect(null)}
+        onCreated={({ gl }) => {
+          // 그래픽 장치 이름을 읽는다. 확장이 없으면 판별하지 않는다.
+          const context = gl.getContext();
+          const info = context.getExtension('WEBGL_debug_renderer_info');
+          if (info && isSoftwareRenderer(String(context.getParameter(info.UNMASKED_RENDERER_WEBGL)))) props.onSoftwareGl();
+        }}
+      >
         {real && model ? (
           <RealStage model={model} items={items} postprocessing={!tracing} />
         ) : (
@@ -528,7 +682,17 @@ export function Viewport(props: ViewportProps) {
         )}
         <PerspectiveCamera makeDefault={view !== 'top'} fov={45} near={0.05} far={400} />
         <OrthographicCamera makeDefault={view === 'top'} up={[0, 0, -1]} near={0.1} far={400} />
-        <CameraRig sheet={sheet} view={view} fitTick={props.fitTick} focus={focus} pan={props.pan} onInterrupt={props.onInterrupt} onDrag={props.onDrag} onAbove={setAbove} />
+        <CameraRig
+          sheet={sheet}
+          view={view}
+          fitTick={props.fitTick}
+          focus={focus}
+          pan={props.pan}
+          onInterrupt={props.onInterrupt}
+          onDrag={props.onDrag}
+          onAbove={setAbove}
+          onMove={props.onMove}
+        />
         <Floor
           sheet={sheet}
           real={real}
@@ -536,8 +700,11 @@ export function Viewport(props: ViewportProps) {
           underlayOpacity={props.underlayOpacity}
           onCursor={props.onCursor}
           onSelect={onSelect}
-          onFit={props.onFit}
+          // 바닥판의 더블클릭은 맞춤이다. 눈높이 뷰에서는 그 지점으로 걸어간다.
+          onDoubleClick={(point) => (view === 'eye' ? focusAt(point) : props.onFit())}
+          onImageLoad={setLoadedImage}
         />
+        {imageReady && <FrameWatch key={props.sceneTick} tick={props.sceneTick} onReady={props.onReady} />}
         {items.map((item) => (
           <ItemGroup
             key={`${sheet.id}-${item.id}`}
@@ -548,10 +715,7 @@ export function Viewport(props: ViewportProps) {
             selected={item.id === selectedId}
             onSelect={onSelect}
             onHover={setHoverName}
-            onFocus={(point) => {
-              props.onInterrupt();
-              setFocus((prev) => ({ point, tick: (prev?.tick ?? 0) + 1 }));
-            }}
+            onFocus={focusAt}
           />
         ))}
         {model && !real && layers.dim && portal && <DimLines lines={model.dimLines} portal={portal} />}

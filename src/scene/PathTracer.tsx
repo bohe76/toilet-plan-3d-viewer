@@ -161,7 +161,7 @@ export function PathTracer({ onStatus }: { onStatus: (status: PathTraceStatus) =
       denoisers.delete(gl);
       onStatus({ state: 'error', samples: 0, target: TARGET_SAMPLES, showAt: SHOW_SAMPLES, seconds: (performance.now() - started.current) / 1000, message });
     };
-    const onContextLost = () => fail('그래픽 장치가 렌더를 중단했다(WebGL 컨텍스트 손실). 닫은 뒤 화면을 다시 불러온다.');
+    const onContextLost = () => fail('그래픽 장치가 렌더를 중단함(WebGL 컨텍스트 손실) · 닫은 뒤 새로고침 필요');
     gl.domElement.addEventListener('webglcontextlost', onContextLost);
     started.current = performance.now();
     onStatus({ state: 'preparing', samples: 0, target: TARGET_SAMPLES, showAt: SHOW_SAMPLES, seconds: 0 });

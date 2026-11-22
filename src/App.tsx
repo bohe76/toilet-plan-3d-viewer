@@ -13,8 +13,8 @@ const VIEWS: { id: ViewMode; label: string }[] = [
 ];
 
 const MODES: { id: RenderMode; label: string; title: string }[] = [
-  { id: 'real', label: '실사', title: '재질, 조명, 그림자를 넣어 본다' },
-  { id: 'plan', label: '도면', title: '스캔 도면을 바닥에 깔고 모델을 겹쳐 본다' },
+  { id: 'real', label: '실사', title: '재질 · 조명 · 그림자 적용' },
+  { id: 'plan', label: '도면', title: '스캔 도면 위에 모델 겹쳐 보기' },
 ];
 
 const ARROWS: Record<string, [number, number]> = {
@@ -26,11 +26,11 @@ const ARROWS: Record<string, [number, number]> = {
 
 const BUILDINGS = ['강의동', '연구동'] as const;
 const DEFAULT_CEILING = 2550;
-/** 아이소·평면 뷰의 기본 절단 높이. 벽에 가린 내부가 보이는 높이다. */
-const DEFAULT_CUT = 1200;
 const PILOT_ID = 'research-3f';
 /** 화면이 멈춘 뒤 고품질 렌더를 시작할 때까지 기다리는 시간(ms) */
 const HQ_DELAY_MS = 1500;
+/** 로딩 스피너를 지우는 시간 제한(ms). 스캔 도면 이미지를 받지 못해도 스피너가 남지 않게 한다. */
+const LOADING_TIMEOUT_MS = 30000;
 
 // URL 인자로 처음 상태를 정한다. 예: ?sheet=research-3f&view=top&cut=1200&dim=1&mode=plan&added=0&hq=1
 // 처음 화면은 실사 모드다(보헤님 지시, 2026-11-21). mode=plan 은 도면 모드로 시작한다. 모델이 없는 탭은 도면 모드만 쓴다.
@@ -40,7 +40,8 @@ const params = new URLSearchParams(window.location.search);
 const initialSheet = sheets.find((s) => s.id === (params.get('sheet') ?? PILOT_ID)) ?? sheets[0];
 const paramView = params.get('view');
 const initialView: ViewMode = !initialSheet.model || paramView === 'top' ? 'top' : paramView === 'eye' ? 'eye' : 'iso';
-const initialCut = Number(params.get('cut')) || DEFAULT_CUT;
+// 절단 높이의 기본은 탭의 천장고(슬라이더의 최대값)다(보헤님 결정, 2026-11-22). Infinity는 effectiveCut에서 천장고가 된다.
+const initialCut = Number(params.get('cut')) || Infinity;
 const paramAdded = params.get('added');
 // 도면 모드는 스캔 도면과 대조하는 화면이다. 도면에 없는 품목은 기본으로 숨긴다.
 const initialAdded: Record<RenderMode, boolean> = {
@@ -49,7 +50,19 @@ const initialAdded: Record<RenderMode, boolean> = {
 };
 
 export function App() {
+  /** 장면에 그리는 탭 */
   const [activeId, setActiveId] = useState(initialSheet.id);
+  /** 강조하는 탭. 누르면 바로 바뀐다. 장면(activeId)은 스피너를 그린 뒤에 바뀐다. */
+  const [tabId, setTabId] = useState(initialSheet.id);
+  /** 장면 전환 번호. 전환을 장면에 반영할 때 바뀐다. Viewport가 이 번호의 첫 화면을 그리면 onReady로 알린다. */
+  const [sceneTick, setSceneTick] = useState(0);
+  /** 첫 화면을 기다리는 장면 전환 번호. null이 아니면 로딩 스피너를 보인다. 처음 접속할 때도 보인다. */
+  const [waitTick, setWaitTick] = useState<number | null>(0);
+  const lastTick = useRef(0);
+  /** 스피너를 그린 뒤에 반영할 전환. 두 프레임 안에 여러 번 누르면 차례로 모두 반영한다. 마지막에 누른 것이 이긴다. */
+  const pendingSwitch = useRef<(() => void)[]>([]);
+  const switchFrame = useRef(0);
+  const [softwareGl, setSoftwareGl] = useState(false);
   const [view, setView] = useState<ViewMode>(initialView);
   const [mode, setMode] = useState<RenderMode>(params.get('mode') === 'plan' ? 'plan' : 'real');
   const [layers, setLayers] = useState<Record<LayerId, boolean>>({
@@ -75,6 +88,7 @@ export function App() {
   const sheet = sheets.find((s) => s.id === activeId) ?? sheets[0];
   const real = mode === 'real' && sheet.model !== undefined;
   const tracing = real && trace !== null;
+  const slowGl = softwareGl && real && hq;
   const showAdded = addedByMode[real ? 'real' : 'plan'];
   const ceiling = sheet.model?.ceilingHeight ?? DEFAULT_CEILING;
   const selected = sheet.model?.items.find((item) => item.id === selectedId) ?? null;
@@ -130,7 +144,9 @@ export function App() {
   // 스위치가 켜져 있으면 화면이 멈추고 HQ_DELAY_MS 뒤에 고품질 렌더를 시작한다.
   // 평면 뷰, 품목을 선택한 동안, 원본 도면을 보는 동안, 시점을 움직이는 동안에는 시작하지 않는다.
   // 완료나 오류 상태에서는 다시 시작하지 않는다(trace가 남아 있다).
-  const canTrace = real && hq && view !== 'top' && selectedId === null && !originalOpen && !dragging;
+  // 로딩 스피너가 떠 있는 동안에도 시작하지 않는다.
+  const loading = waitTick !== null;
+  const canTrace = real && hq && view !== 'top' && selectedId === null && !originalOpen && !dragging && !loading;
   const idle = trace === null;
   useEffect(() => {
     if (!canTrace || !idle) return;
@@ -138,17 +154,56 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [canTrace, idle, activity]);
 
+  // 탭 전환과 모드 전환. 스피너를 먼저 그리고 그 다음 프레임에 장면을 바꾼다.
+  // requestAnimationFrame 한 번은 그리기 전에 불린다. 두 번 겹쳐야 스피너가 그려진 뒤가 된다.
+  const switchScene = useCallback((apply: () => void) => {
+    const tick = ++lastTick.current;
+    setWaitTick(tick);
+    pendingSwitch.current.push(apply);
+    if (switchFrame.current) return;
+    switchFrame.current = requestAnimationFrame(() => {
+      switchFrame.current = requestAnimationFrame(() => {
+        switchFrame.current = 0;
+        const applies = pendingSwitch.current;
+        pendingSwitch.current = [];
+        applies.forEach((run) => run());
+        setSceneTick(lastTick.current);
+      });
+    });
+  }, []);
+
+  // 늦게 온 첫 화면 신호(앞선 전환의 것)는 버린다.
+  const onReady = useCallback((tick: number) => setWaitTick((wait) => (wait === tick ? null : wait)), []);
+
+  useEffect(() => {
+    if (waitTick === null) return;
+    const timer = window.setTimeout(() => setWaitTick((wait) => (wait === waitTick ? null : wait)), LOADING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [waitTick]);
+
+  const onSoftwareGl = useCallback(() => setSoftwareGl(true), []);
+
   const selectSheet = useCallback((id: string) => {
     const next = sheets.find((s) => s.id === id);
     if (!next) return;
     stopTrace();
-    // 탭이나 뷰를 바꾸면 카메라 조작기를 새로 만든다. 누르고 있던 드래그의 끝 신호가 오지 않는다.
-    setDragging(false);
-    setActiveId(id);
-    setSelectedId(null);
-    setCutHeight(DEFAULT_CUT);
-    setView((prev) => (next.model ? prev : 'top'));
-  }, [stopTrace]);
+    const apply = () => {
+      // 탭이나 뷰를 바꾸면 카메라 조작기를 새로 만든다. 누르고 있던 드래그의 끝 신호가 오지 않는다.
+      setDragging(false);
+      setActiveId(id);
+      setSelectedId(null);
+      setCutHeight(Infinity);
+      setView((prev) => (next.model ? prev : 'top'));
+    };
+    // 지금 탭을 다시 누르면 절단 높이와 선택만 초기화한다. 장면이 바뀌지 않으므로 스피너를 띄우지 않는다. 띄우면 지울 계기가 없다.
+    // 다른 탭으로 바꾸는 중에 그 탭을 다시 누르면 아무것도 하지 않는다.
+    if (id === tabId) {
+      if (id === activeId) apply();
+      return;
+    }
+    setTabId(id);
+    switchScene(apply);
+  }, [stopTrace, switchScene, tabId, activeId]);
 
   const fit = useCallback(() => {
     stopTrace();
@@ -184,7 +239,7 @@ export function App() {
       } else if (e.key >= '1' && e.key <= '8') {
         // 지금 탭의 번호를 누르면 아무것도 하지 않는다. 다시 고르면 절단 높이와 렌더가 초기화된다.
         const id = sheets[Number(e.key) - 1].id;
-        if (id !== activeId) selectSheet(id);
+        if (id !== tabId) selectSheet(id);
       }
       else if (e.key === 'f' || e.key === 'F') fit();
       else if (e.key === 'Escape') {
@@ -196,7 +251,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectSheet, fit, move, originalOpen, tracing, turnOffHq, activeId]);
+  }, [selectSheet, fit, move, originalOpen, tracing, turnOffHq, tabId]);
 
   return (
     <div className="app">
@@ -210,7 +265,7 @@ export function App() {
               .map((s) => (
                 <button
                   key={s.id}
-                  className={`tab${s.id === activeId ? ' active' : ''}${s.model ? '' : ' pending'}`}
+                  className={`tab${s.id === tabId ? ' active' : ''}${s.model ? '' : ' pending'}`}
                   title={`${s.title} (단축키 ${s.page})`}
                   onClick={() => selectSheet(s.id)}
                 >
@@ -232,9 +287,14 @@ export function App() {
               disabled={m.id === 'real' && !sheet.model}
               onClick={() => {
                 stopTrace();
-                // 모드마다 보이는 품목이 다르다. 숨는 품목이 선택된 채로 남지 않게 한다.
-                setSelectedId(null);
-                setMode(m.id);
+                const apply = () => {
+                  // 모드마다 보이는 품목이 다르다. 숨는 품목이 선택된 채로 남지 않게 한다.
+                  setSelectedId(null);
+                  setMode(m.id);
+                };
+                // 보이는 모드가 그대로면(켜진 버튼, 모델 없는 탭) 장면이 바뀌지 않는다. 스피너를 띄우지 않는다.
+                if (m.id === (real ? 'real' : 'plan')) apply();
+                else switchScene(apply);
               }}
             >
               {m.label}
@@ -258,7 +318,7 @@ export function App() {
             {layer.label}
           </label>
         ))}
-        <label className="check" title="도면에 없지만 상식적으로 있어야 해서 넣은 품목. 값은 모두 가정이다">
+        <label className="check" title="도면에 없지만 상식적으로 있어야 해서 넣은 품목 · 값은 모두 가정">
           <input
             type="checkbox"
             checked={showAdded}
@@ -296,7 +356,8 @@ export function App() {
         <span className="value">{effectiveCut.toLocaleString('en-US')} mm</span>
       </aside>
 
-      <main className="stage">
+      {/* data-loading은 검사 도구(work/tools/cdp.mjs)가 로딩 끝을 기다리는 표시다. 지우면 도구가 깨진다. */}
+      <main className="stage" data-loading={loading ? '' : undefined}>
         <Viewport
           sheet={sheet}
           view={view}
@@ -316,6 +377,10 @@ export function App() {
           onSelect={select}
           onCursor={showCursor}
           onFit={fit}
+          onMove={move}
+          sceneTick={sceneTick}
+          onReady={onReady}
+          onSoftwareGl={onSoftwareGl}
         />
         <div className="toolbar">
           {VIEWS.map((v) => (
@@ -337,7 +402,7 @@ export function App() {
             <button
               className={hq ? 'active' : ''}
               aria-pressed={hq}
-              title="켜 두면 화면이 멈춘 뒤에 경로 추적으로 다듬은 화면을 만든다. 시점을 바꾸면 처음부터 다시 만든다. 평면 뷰와 품목을 선택한 동안에는 쉰다"
+              title="화면이 멈추면 경로 추적으로 다듬은 화면 생성 · 시점을 바꾸면 처음부터 · 평면 뷰와 품목 선택 중에는 쉼"
               onClick={() => {
                 setHq(!hq);
                 stopTrace();
@@ -347,27 +412,38 @@ export function App() {
             </button>
           )}
         </div>
-        {tracing && trace && (
-          <div className="trace-bar">
-            {trace.state === 'error' ? (
-              <span>고품질 렌더를 계속하지 못했다. 스위치를 껐다: {trace.message}</span>
-            ) : trace.state === 'preparing' ? (
-              <span>고품질 렌더 준비 중…</span>
-            ) : trace.state === 'compiling' ? (
-              <span>고품질 렌더 셰이더 준비 중 · {Math.round(trace.seconds)}초 (처음 한 번은 몇 분 걸린다)</span>
-            ) : trace.samples < trace.showAt ? (
-              <span>
-                고품질 렌더 계산 중 · 표본 {trace.samples} / {trace.showAt} (다 모이면 화면을 바꾼다) · {Math.round(trace.seconds)}초
-              </span>
-            ) : (
-              <span>
-                고품질 렌더 {trace.state === 'done' ? '완료' : '진행 중'} · 표본 {trace.samples} / {trace.target} · {Math.round(trace.seconds)}초
-              </span>
+        {/* 소프트웨어 렌더링이면 고품질 렌더 스위치가 켜져 있는 동안 진행 막대 자리에 안내를 둔다. 렌더는 막지 않는다. */}
+        {((tracing && trace) || slowGl) && (
+          <div className={`trace-bar${slowGl ? ' wrap' : ''}`}>
+            {slowGl && <span>브라우저의 그래픽 가속 꺼짐 · 고품질 렌더가 매우 느림 (Chrome 설정 → 시스템 → 그래픽 가속 사용)</span>}
+            {tracing && trace && (
+              <>
+                {trace.state === 'error' ? (
+                  <span>고품질 렌더 중단 · 스위치 꺼짐: {trace.message}</span>
+                ) : trace.state === 'preparing' ? (
+                  <span>고품질 렌더 준비 중…</span>
+                ) : trace.state === 'compiling' ? (
+                  <span>고품질 렌더 셰이더 준비 중 · {Math.round(trace.seconds)}초 (첫 실행은 몇 분 소요)</span>
+                ) : trace.samples < trace.showAt ? (
+                  <span>
+                    고품질 렌더 계산 중 · 표본 {trace.samples} / {trace.showAt} · {Math.round(trace.seconds)}초 · {trace.showAt}개 모이면 화면 전환
+                  </span>
+                ) : (
+                  <span>
+                    고품질 렌더 {trace.state === 'done' ? '완료' : '진행 중'} · 표본 {trace.samples} / {trace.target} · {Math.round(trace.seconds)}초
+                  </span>
+                )}
+                <button onClick={turnOffHq}>{trace.state === 'error' ? '닫기' : '끄기 (Esc)'}</button>
+              </>
             )}
-            <button onClick={turnOffHq}>{trace.state === 'error' ? '닫기' : '끄기 (Esc)'}</button>
           </div>
         )}
-        <div className="pan-pad" title="화면 이동 (화살표 키와 같다. Shift를 누르면 빠르게 이동한다)">
+        {loading && (
+          <div className="loading" role="status" aria-label="화면 구성 중">
+            <div className="spinner" />
+          </div>
+        )}
+        <div className="pan-pad" title="화면 이동 (화살표 키와 같음 · Shift: 빠르게)">
           <button className="up" onClick={(e) => move(0, 1, e.shiftKey)} aria-label="앞으로 이동">▲</button>
           <button className="left" onClick={(e) => move(-1, 0, e.shiftKey)} aria-label="왼쪽으로 이동">◀</button>
           <button className="right" onClick={(e) => move(1, 0, e.shiftKey)} aria-label="오른쪽으로 이동">▶</button>
@@ -396,7 +472,9 @@ export function App() {
         <span>축척 1/50 (A3)</span>
         <span ref={cursorText}>X – · Y – mm</span>
         <span className="hint">
-          {view === 'top' ? '왼쪽 드래그: 이동' : '왼쪽 드래그: 회전 · 오른쪽 드래그: 이동'} · 휠: 확대 · 화살표: 이동 (Shift 빠르게) · 클릭: 선택 · 더블클릭: 초점 · 1~8: 탭 · F: 맞춤
+          {view === 'eye'
+            ? '왼쪽 드래그: 둘러보기 · 휠: 앞뒤 이동 · 화살표: 이동 (Shift 빠르게) · 클릭: 선택 · 더블클릭: 그 지점으로 이동 · 1~8: 탭 · F: 맞춤'
+            : `${view === 'top' ? '왼쪽 드래그: 이동' : '왼쪽 드래그: 회전 · 오른쪽 드래그: 이동'} · 휠: 확대 · 화살표: 이동 (Shift 빠르게) · 클릭: 선택 · 더블클릭: 초점 · 1~8: 탭 · F: 맞춤`}
         </span>
       </footer>
 

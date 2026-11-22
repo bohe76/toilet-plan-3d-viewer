@@ -6,7 +6,7 @@ export function ItemInfo({ item }: { item: Item }) {
     <>
       <h2>{item.name}</h2>
       <p className="muted">{LAYERS.find((l) => l.id === item.layer)?.label}</p>
-      {item.added && <p className="notice">상식 보완 품목이다. 도면에 없다. 위치와 크기는 모두 가정이다.</p>}
+      {item.added && <p className="notice">상식 보완 품목 · 도면에 없음 · 위치와 크기는 가정</p>}
       {item.note && (
         <>
           <h3>도면 주기</h3>
@@ -63,18 +63,18 @@ export function SheetInfo({ sheet }: { sheet: Sheet }) {
           </table>
           <h3>값 출처</h3>
           <p>
-            <span className="badge drawn">도면 표기</span> 도면에 적힌 치수다.
+            <span className="badge drawn">도면 표기</span> 도면에 적힌 치수
           </p>
           <p>
-            <span className="badge scaled">축척 환산</span> 도면의 선 위치를 축척으로 환산한 값이다.
+            <span className="badge scaled">축척 환산</span> 도면의 선 위치를 축척으로 환산한 값
           </p>
           <p>
-            <span className="badge assumed">가정</span> 도면에 없어서 가정한 값이다.
+            <span className="badge assumed">가정</span> 도면에 없어서 가정한 값
           </p>
-          <p className="muted">품목을 클릭하면 치수와 도면 주기를 표시한다.</p>
+          <p className="muted">품목 클릭: 치수와 도면 주기 표시</p>
         </>
       ) : (
-        <p className="notice">이 탭은 3D 모델 작성 전이다. 기울기를 보정한 도면만 표시한다.</p>
+        <p className="notice">3D 모델 작성 전 · 기울기를 보정한 도면만 표시</p>
       )}
     </>
   );
