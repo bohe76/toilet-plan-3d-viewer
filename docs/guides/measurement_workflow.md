@@ -60,11 +60,11 @@ python -m venv .venv
 
 ```powershell
 pnpm dev --port 5183 --strictPort
-& 'C:\Program Files\Google\Chrome\Application\chrome.exe' --headless=new --user-data-dir="$env:TEMP\chrome-capture" --window-size=2400,2300 --hide-scrollbars --enable-unsafe-swiftshader --virtual-time-budget=25000 --screenshot=work\verify\p6\top.png "http://localhost:5183/?sheet=research-3f&view=top&dim=1"
+& 'C:\Program Files\Google\Chrome\Application\chrome.exe' --headless=new --user-data-dir="$env:TEMP\chrome-capture" --window-size=2400,2300 --hide-scrollbars --enable-unsafe-swiftshader --virtual-time-budget=25000 --screenshot=work\verify\p6\top.png "http://localhost:5183/?sheet=research-3f&mode=plan&view=top&dim=1&cut=1200"
 ```
 
 - 이 명령으로 캡처하면 캔버스 오른쪽과 아래에 빈 띠가 생긴다. 창 안쪽 크기가 지정값보다 작게 잡혀서 생기는 캡처 현상이다. 2026-11-21에 chrome-devtools-headless MCP로 뷰포트를 1600 × 1000으로 고정해서 캡처했을 때는 빈 띠가 없었다(캔버스 크기와 화면 영역 크기가 같았다).
-- 검수자에게 줄 평면 화면은 `?mode=plan&view=top&dim=1` 로 만든다. 처음 화면이 실사 모드라서 `mode=plan` 이 필요하다. 도면 모드는 도면에 없는 상식 보완 품목을 기본으로 숨긴다.
+- 검수자에게 줄 평면 화면은 `?mode=plan&view=top&dim=1&cut=1200` 으로 만든다. 처음 화면이 실사 모드라서 `mode=plan` 이 필요하다. 절단 높이의 기본값이 탭의 천장고라서 `cut=1200` 이 필요하다. 붙이지 않으면 문 위의 벽이 문 개구를 덮는다. 도면 모드는 도면에 없는 상식 보완 품목을 기본으로 숨긴다.
 - 고품질 렌더는 기본으로 꺼져 있다. 실사 모드 화면은 그대로 캡처한다. `hq=1` 을 붙이면 고품질 렌더가 자동으로 시작한다.
 - 표기 치수와 선 위치가 다르면 표기 치수를 따른다. 그 사실을 `remark` 에 적는다.
 

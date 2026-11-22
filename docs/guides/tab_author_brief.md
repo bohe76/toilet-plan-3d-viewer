@@ -100,8 +100,10 @@
 ## 6. 화면 확인
 
 ```powershell
-node work/tools/cdp.mjs snap "sheet=<탭 id>&mode=plan&view=top&dim=1" work/verify/pN/top.png 2400x2400
+node work/tools/cdp.mjs snap "sheet=<탭 id>&mode=plan&view=top&dim=1&cut=1200" work/verify/pN/top.png 2400x2400
 ```
+
+- `cut=1200` 을 꼭 붙인다. 절단 높이의 기본값은 탭의 천장고다. 붙이지 않으면 문 위의 벽이 문 개구를 덮는다.
 
 - 명령은 한 번에 한 명만 찍는다. 다른 작성자가 찍는 동안에는 기다렸다가 찍는다. 1회에 20 ~ 60초가 걸린다.
 - 출력의 `overlay` 가 null이 아니면 어느 파일에 문법 오류가 있다. 그 화면은 버린다. 자기 파일이면 고친다. 다른 탭의 파일이면 30초 뒤에 다시 찍는다.
@@ -110,7 +112,7 @@ node work/tools/cdp.mjs snap "sheet=<탭 id>&mode=plan&view=top&dim=1" work/veri
 - 실사 모드는 아이소 1장과 눈높이 1장만 찍는다. GPU가 1개다. 기다림을 길게 준다.
 
 ```powershell
-node work/tools/cdp.mjs snap "sheet=<탭 id>&view=iso" work/verify/pN/real_iso.png 1600x1000 25000
+node work/tools/cdp.mjs snap "sheet=<탭 id>&view=iso&cut=1200" work/verify/pN/real_iso.png 1600x1000 25000
 node work/tools/cdp.mjs snap "sheet=<탭 id>&view=eye" work/verify/pN/real_eye.png 1600x1000 25000
 ```
 
