@@ -277,83 +277,91 @@ export function App() {
       </header>
 
       <aside className="panel left">
-        <h3>표시 모드</h3>
-        <div className="segmented">
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              className={(real ? 'real' : 'plan') === m.id ? 'active' : ''}
-              title={m.title}
-              disabled={m.id === 'real' && !sheet.model}
-              onClick={() => {
-                stopTrace();
-                const apply = () => {
-                  // 모드마다 보이는 품목이 다르다. 숨는 품목이 선택된 채로 남지 않게 한다.
-                  setSelectedId(null);
-                  setMode(m.id);
-                };
-                // 보이는 모드가 그대로면(켜진 버튼, 모델 없는 탭) 장면이 바뀌지 않는다. 스피너를 띄우지 않는다.
-                if (m.id === (real ? 'real' : 'plan')) apply();
-                else switchScene(apply);
-              }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <section className="card">
+          <h3>표시 모드</h3>
+          <div className="segmented">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                className={(real ? 'real' : 'plan') === m.id ? 'active' : ''}
+                title={m.title}
+                disabled={m.id === 'real' && !sheet.model}
+                onClick={() => {
+                  stopTrace();
+                  const apply = () => {
+                    // 모드마다 보이는 품목이 다르다. 숨는 품목이 선택된 채로 남지 않게 한다.
+                    setSelectedId(null);
+                    setMode(m.id);
+                  };
+                  // 보이는 모드가 그대로면(켜진 버튼, 모델 없는 탭) 장면이 바뀌지 않는다. 스피너를 띄우지 않는다.
+                  if (m.id === (real ? 'real' : 'plan')) apply();
+                  else switchScene(apply);
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </section>
 
-        <h3>레이어</h3>
-        {LAYERS.map((layer) => (
-          <label key={layer.id} className="check">
+        <section className="card">
+          <h3>레이어</h3>
+          {LAYERS.map((layer) => (
+            <label key={layer.id} className="check">
+              <input
+                type="checkbox"
+                checked={layers[layer.id]}
+                // 마감은 실사 모드에서만, 치수는 도면 모드에서만 그린다.
+                disabled={!sheet.model || (layer.id === 'finish' && !real) || (layer.id === 'dim' && real)}
+                onChange={(e) => {
+                  stopTrace();
+                  setLayers((prev) => ({ ...prev, [layer.id]: e.target.checked }));
+                }}
+              />
+              {layer.label}
+            </label>
+          ))}
+          <label className="check" title="도면에 없지만 상식적으로 있어야 해서 넣은 품목 · 값은 모두 가정">
             <input
               type="checkbox"
-              checked={layers[layer.id]}
-              // 마감은 실사 모드에서만, 치수는 도면 모드에서만 그린다.
-              disabled={!sheet.model || (layer.id === 'finish' && !real) || (layer.id === 'dim' && real)}
+              checked={showAdded}
+              disabled={!sheet.model}
               onChange={(e) => {
                 stopTrace();
-                setLayers((prev) => ({ ...prev, [layer.id]: e.target.checked }));
+                setSelectedId(null);
+                setAddedByMode((prev) => ({ ...prev, [real ? 'real' : 'plan']: e.target.checked }));
               }}
             />
-            {layer.label}
+            상식 보완 품목
           </label>
-        ))}
-        <label className="check" title="도면에 없지만 상식적으로 있어야 해서 넣은 품목 · 값은 모두 가정">
+          <label className="check">
+            <input type="checkbox" checked={underlayVisible} disabled={real} onChange={(e) => setUnderlayVisible(e.target.checked)} />
+            바닥 도면
+          </label>
+        </section>
+
+        <section className="card">
+          <h3>바닥 도면 불투명도</h3>
           <input
-            type="checkbox"
-            checked={showAdded}
-            disabled={!sheet.model}
+            type="range" min={0} max={1} step={0.05} value={underlayOpacity} disabled={real}
+            onChange={(e) => setUnderlayOpacity(Number(e.target.value))}
+            onPointerUp={(e) => e.currentTarget.blur()}
+          />
+          <span className="value">{Math.round(underlayOpacity * 100)}%</span>
+        </section>
+
+        <section className="card">
+          <h3>절단 높이</h3>
+          <input
+            type="range" min={300} max={ceiling} step={50} value={effectiveCut} disabled={!sheet.model || view === 'eye'}
             onChange={(e) => {
               stopTrace();
-              setSelectedId(null);
-              setAddedByMode((prev) => ({ ...prev, [real ? 'real' : 'plan']: e.target.checked }));
+              setCutHeight(Number(e.target.value));
             }}
+            onPointerUp={(e) => e.currentTarget.blur()}
           />
-          상식 보완 품목
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={underlayVisible} disabled={real} onChange={(e) => setUnderlayVisible(e.target.checked)} />
-          바닥 도면
-        </label>
-
-        <h3>바닥 도면 불투명도</h3>
-        <input
-          type="range" min={0} max={1} step={0.05} value={underlayOpacity} disabled={real}
-          onChange={(e) => setUnderlayOpacity(Number(e.target.value))}
-          onPointerUp={(e) => e.currentTarget.blur()}
-        />
-        <span className="value">{Math.round(underlayOpacity * 100)}%</span>
-
-        <h3>절단 높이</h3>
-        <input
-          type="range" min={300} max={ceiling} step={50} value={effectiveCut} disabled={!sheet.model || view === 'eye'}
-          onChange={(e) => {
-            stopTrace();
-            setCutHeight(Number(e.target.value));
-          }}
-          onPointerUp={(e) => e.currentTarget.blur()}
-        />
-        <span className="value">{effectiveCut.toLocaleString('en-US')} mm</span>
+          <span className="value">{effectiveCut.toLocaleString('en-US')} mm</span>
+        </section>
       </aside>
 
       {/* data-loading은 검사 도구(work/tools/cdp.mjs)가 로딩 끝을 기다리는 표시다. 지우면 도구가 깨진다. */}
@@ -452,19 +460,22 @@ export function App() {
       </main>
 
       <aside className="panel right">
-        {selected ? <ItemInfo item={selected} /> : <SheetInfo sheet={sheet} />}
-        <h3>원본 도면</h3>
-        <button
-          className="thumb"
-          title="원본 도면 보기"
-          onClick={() => {
-            // 원본 도면이 화면을 덮는 동안에는 고품질 렌더를 돌리지 않는다.
-            stopTrace();
-            setOriginalOpen(true);
-          }}
-        >
-          <img src={sheet.image} alt={sheet.title} />
-        </button>
+        <section className="card">{selected ? <ItemInfo item={selected} /> : <SheetInfo sheet={sheet} />}</section>
+        <section className="card">
+          <h3>원본 도면</h3>
+          <button
+            className="thumb"
+            title="원본 도면 보기"
+            onClick={() => {
+              // 원본 도면이 화면을 덮는 동안에는 고품질 렌더를 돌리지 않는다.
+              stopTrace();
+              setOriginalOpen(true);
+            }}
+          >
+            <img src={sheet.image} alt={sheet.title} />
+            <span className="thumb-badge" aria-hidden="true">⤢ 크게 보기</span>
+          </button>
+        </section>
       </aside>
 
       <footer className="status">

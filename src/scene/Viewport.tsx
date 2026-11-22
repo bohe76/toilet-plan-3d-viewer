@@ -646,7 +646,6 @@ export function Viewport(props: ViewportProps) {
 
   return (
     <div
-      ref={setOverlay}
       className="viewport"
       onMouseMove={(e) => {
         const el = tooltip.current;
@@ -675,7 +674,8 @@ export function Viewport(props: ViewportProps) {
         ) : (
           <>
             <FlatTone />
-            <color attach="background" args={['#e9ecf0']} />
+            {/* styles.css의 --bg-main과 같은 값 */}
+            <color attach="background" args={['#272727']} />
             <ambientLight intensity={1.7} />
             <directionalLight position={[6, 12, 4]} intensity={1.3} />
           </>
@@ -728,6 +728,8 @@ export function Viewport(props: ViewportProps) {
           ))}
         {tracing && <PathTracer onStatus={props.onPathTrace} />}
       </Canvas>
+      {/* 라벨 층. 3D 화면 밖으로 나간 라벨을 자른다. 툴팁은 이 층 밖에 두어서 화면 가장자리에서도 잘리지 않게 한다. */}
+      <div ref={setOverlay} className="labels" />
       <div ref={tooltip} className="tooltip" hidden={!hoverName}>
         {hoverName}
       </div>
