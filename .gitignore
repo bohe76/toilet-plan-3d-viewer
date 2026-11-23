@@ -4,3 +4,6 @@ work/
 .omc/
 .venv/
 *.log
+*.pdf
+tools/.cdp.lock
+tools/chrome-profile/
