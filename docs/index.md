@@ -12,4 +12,5 @@
 | `guides/` | [measurement_workflow.md](guides/measurement_workflow.md) | 스캔 도면에서 좌표를 얻는 절차, 독립 검수 절차 |
 | `guides/` | [tab_author_brief.md](guides/tab_author_brief.md) | 탭 작성 에이전트의 순서, 파일 범위, 데이터 규칙, 보고 형식 |
 | `guides/` | [tab_verifier_brief.md](guides/tab_verifier_brief.md) | 독립 검증 에이전트의 순서, 규칙, 대조 항목 |
+| `guides/` | [project_story_for_friends.md](guides/project_story_for_friends.md) | 비개발자용 프로젝트 진행 이야기. 시간순 지시, 피드백, AI의 행동, 따라 하는 요령 |
 | `verification/` | `<탭>_verification.md` 8개 | 탭마다의 독립 검수 기록, 조율자 결정, 모델 제외 항목, 판정불가. [강의동 2F](verification/lecture_2f_verification.md), [3F](verification/lecture_3f_verification.md), [4F](verification/lecture_4f_verification.md), [연구동 1F](verification/research_1f_verification.md), [2F](verification/research_2f_verification.md), [3F(파일럿)](verification/research_3f_verification.md), [4F](verification/research_4f_verification.md), [5F](verification/research_5f_verification.md) |
