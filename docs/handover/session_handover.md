@@ -18,7 +18,7 @@
 | typecheck, lint, build | 통과 (2026-11-22, 5차 세션) |
 | 모델 겹침 검사 (`bead_overlap`, `leaf_threshold`) | 8개 탭 모두 겹침 없음 (2026-11-22) |
 | 실사 모드 화면 확인 | 8개 탭의 아이소와 눈높이 화면 16장. 콘솔 오류 0건. 캡처는 `work/verify/final/` (git 제외) |
-| 공개 배포 (GitHub Pages) | 공개 주소에 5차 세션의 빌드가 있다 (2026-11-22, 작업 저장소 `7e6bf40` 의 빌드, 공개 저장소 커밋 `5f83833`). 조작, 테마, 조작법 창, WASD, 「조작법」 버튼의 아이콘, `F` 의 키 자리 판정이 들어 있다. 보헤님이 배포하라고 해서 두 번 배포했다(`7721763`, `5f83833`). 배포 직후에는 브라우저에 이전 `index.html` 이 최대 10분 남는다. 확인할 때는 주소 끝에 `?v=커밋` 을 붙인다. 주소와 재배포 순서는 6절 「공개 배포」 |
+| 공개 저장소와 배포 (GitHub Pages) | 소스, 문서, 커밋 기록 전체를 오픈 소스(MIT)로 공개했다(2026-11-23). `main` 에 푸시하면 GitHub Actions가 빌드해서 Pages에 올린다. 공개 주소에는 5차 세션의 빌드가 있다. 주소와 절차는 6절 「공개 저장소와 배포」 |
 
 ### 탭별 모델과 검수
 
@@ -149,7 +149,7 @@
 ### 화면 확인
 
 - 개발 서버는 `pnpm dev --port 5183 --strictPort` 다. 뷰포트는 1600 × 1000으로 고정한다.
-- MCP(chrome-devtools, chrome-devtools-headless, playwright)는 3차, 4차 세션에서 모두 연결 시간 초과였다. Chrome을 `--headless=new --remote-debugging-port=9333` 로 띄우고 `work/tools/cdp.mjs` 로 DevTools Protocol을 직접 부른다.
+- MCP(chrome-devtools, chrome-devtools-headless, playwright)는 3차, 4차 세션에서 모두 연결 시간 초과였다. Chrome을 `--headless=new --remote-debugging-port=9333` 로 띄우고 `tools/cdp.mjs` 로 DevTools Protocol을 직접 부른다.
 - `cdp.mjs` 의 `snap` 은 주소를 열고 로딩 표시(`.stage[data-loading]`)가 없어지면 캡처한다. `act` 는 주소를 열고 단계(드래그, 휠, 클릭, 더블클릭, 키, 식 실행, 캡처)를 한 연결 안에서 차례로 실행한다. 쓰임새는 파일 머리의 주석에 있다.
 - 두 명령은 접속 전에 조작법 창의 「다시 보지 않기」 값을 넣어서 창을 끈다. 조작법 창 자체를 볼 때는 환경 변수 `CDP_KEEP_HELP=1` 을 준다.
 - 개발 모드에서만 `window.__cam()` 이 카메라의 위치, 방향, 위아래 각도를 돌려준다. 빌드 결과물에는 없다.
@@ -158,7 +158,7 @@
 - 고품질 렌더 중에 `src/` 파일을 저장하지 않는다. HMR이 렌더를 다시 시작해서 모은 표본을 버린다.
 - 실사 모드의 첫 화면은 셰이더 준비 때문에 이 PC에서 13초쯤 걸린다.
 
-### 작업 도구 (`work/tools/`, git 제외)
+### 작업 도구 (`tools/`)
 
 | 파일 | 하는 일 |
 |---|---|
@@ -169,7 +169,7 @@
 | `bead_overlap.mjs <all.json>` | 코너 비드의 날개와 `wall` 레이어 상자의 겹침을 찾는다 |
 | `leaf_threshold.mjs <all.json>` | 문짝과 재료분리대의 겹침을 찾는다 |
 
-`work/` 를 지우면 이 도구도 없어진다. 다시 필요하면 새로 쓴다.
+도구는 `tools/` 에 있고 git이 추적한다. `work/` 는 git 밖이라서 저장소에 없다.
 
 ### 병렬 작업 방식 (4차 세션)
 
@@ -189,21 +189,18 @@
 
 ### 그 밖
 
-- 이 PC는 내장 그래픽(Intel HD Graphics 4000)이다. 다른 Claude 세션, Codex, `next dev`, Docker가 함께 돌 때 CPU 부하가 100%가 된다.
+- 이 PC는 내장 그래픽(Intel HD Graphics 4000)이다. 다른 AI 세션이나 개발 서버가 함께 돌 때 CPU 부하가 100%가 된다.
 - 다른 프로젝트의 프로세스는 고아여도 끝내지 않는다. 보고만 한다. (보헤님 지시)
 - 측정 스크립트용 파이썬 환경은 프로젝트 루트의 `.venv` 다(pymupdf, numpy, opencv). git에 넣지 않는다. 없으면 README의 명령으로 만든다.
 - `work/` 는 git에 넣지 않는다. 검수 근거 이미지(`work/verify/`)도 그 안에 있다. 지우면 `prep_plans.py` 와 `measure_plan.py` 로 도면 이미지는 다시 만들 수 있다. 검수 근거 이미지는 다시 만들어야 한다.
 - 줄 끝: 작업 폴더의 파일은 CRLF와 LF가 섞여 있다. git의 autocrlf가 커밋할 때 정리한다. 파일을 고칠 때는 그 파일의 줄 끝을 유지한다.
 - 개발 서버와 헤드리스 Chrome은 세션 종료 때 내린다.
 
-### 공개 배포 (GitHub Pages)
+### 공개 저장소와 배포 (GitHub Pages)
 
-- 주소: <https://bohe76.github.io/toilet-plan-3d-viewer/> (공개 저장소 `bohe76/toilet-plan-3d-viewer`)
-- 공개 저장소에는 빌드 결과물(`dist/` 의 내용과 `.nojekyll`)만 있다. 소스, 문서, PDF는 없다. 스캔 도면 이미지 8장(`plans/plan_N.jpg`)은 뷰어가 쓰기 때문에 들어 있다.
-- **이 작업 저장소의 `main` 을 공개 저장소에 푸시하지 않는다.** 기록에 PDF와 문서가 있다. 이 작업 저장소에는 원격을 달지 않는다.
-- 다시 배포하는 순서:
-  1. `pnpm build` 를 실행한다.
-  2. 프로젝트 밖의 빈 폴더에 `gh repo clone bohe76/toilet-plan-3d-viewer` 로 공개 저장소를 받는다.
-  3. 받은 폴더에서 `.git` 과 `.nojekyll` 을 뺀 파일을 지운다. `dist/` 의 내용을 복사한다.
-  4. 작성자 메일이 GitHub noreply 주소인지 확인한다(`git config user.email`). 개인 메일이면 그 폴더에서만 noreply 주소로 바꾼다.
-  5. 커밋하고 `git push` 한다. 1 ~ 2분 뒤에 주소에서 확인한다.
+- 저장소: <https://github.com/bohe76/toilet-plan-3d-viewer> (오픈 소스, MIT). 화면 주소: <https://bohe76.github.io/toilet-plan-3d-viewer/>
+- 2026-11-23에 소스, 문서, 커밋 기록 전체를 공개했다. 도면을 받은 쪽으로부터 보안상 문제가 없다는 확인을 받은 뒤 보헤님이 지시했다. 원본 PDF는 커밋 기록 전체에서 뺐다. 커밋 작성자 메일은 GitHub noreply 주소(`15307692+bohe76@users.noreply.github.com`)로 바꿨다. 이 시점 전에는 공개 저장소에 빌드 결과물만 있었다.
+- 배포는 `main` 에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 `pnpm lint` 와 `pnpm build` 를 돌리고 Pages에 올린다. `dist/` 를 손으로 복사하지 않는다. Pages 설정의 소스는 「GitHub Actions」다.
+- 푸시는 곧 배포다. 보헤님이 로컬(`http://localhost:5183/`)에서 확인하고 배포하라고 한 뒤에 푸시한다.
+- 푸시 전에 확인한다: 작성자 메일이 noreply인지(`git log -1 --format=%ae`), PDF 원본과 개인 정보가 추가되지 않았는지 본다. `.gitignore` 가 `*.pdf` 를 막는다.
+- 배포 직후에는 브라우저에 이전 `index.html` 이 최대 10분 남는다. 확인할 때는 주소 끝에 `?v=커밋` 을 붙인다.

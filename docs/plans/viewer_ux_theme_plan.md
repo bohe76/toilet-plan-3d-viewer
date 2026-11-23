@@ -211,7 +211,7 @@
 
 - lint와 typecheck는 항상 돌린다. 끝에 build를 돌린다.
 - 작성과 검토를 나눈다. 구현 에이전트(`executor`)가 쓰고, 다른 에이전트(`code-reviewer`)가 커밋 전에 본다.
-- 화면 확인은 헤드리스 Chrome으로 한다(`work/tools/cdp.mjs`). `hq=1` 은 붙이지 않는다.
+- 화면 확인은 헤드리스 Chrome으로 한다(`tools/cdp.mjs`). `hq=1` 은 붙이지 않는다.
 - `cdp.mjs snap` 은 끌기, 휠, 클릭을 하지 못한다. `Input.dispatchMouseEvent` 를 쓰는 입력 명령을 더한다. 그것으로 아래를 확인한다.
 
 | 항목 | 확인할 것 |
@@ -233,7 +233,7 @@
 | `docs/spec/viewer_spec.md` | 5절(절단 높이), 6절(화면 배치), 7절(마우스와 키보드: 눈높이 뷰의 열을 따로 둔다), 9.5절(고품질 렌더의 글자)을 고친다. 테마의 색 표를 더한다 |
 | `docs/guides/tab_author_brief.md:103` | 평면 캡처 명령에 `cut=1200` 을 붙인다 |
 | `docs/guides/measurement_workflow.md:63, 67` | 같은 인자를 붙인다 |
-| `work/tools/cdp.mjs` (git 제외) | 머리 주석의 예시에 `cut=1200` 을 붙인다. 입력 명령을 더한다 |
+| `tools/cdp.mjs` | 머리 주석의 예시에 `cut=1200` 을 붙인다. 입력 명령을 더한다 |
 
 ## 7. 배포
 

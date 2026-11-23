@@ -89,8 +89,8 @@
 15. **평면 밖의 상세도를 읽지 않았다.** 도면 오른쪽 위에 「"A" 단면상세도」가 있는 장이 있다. 강의동은 출입구 문틀 머리의 단면이다(문틀 머리 아래 면 = 천장고 − 약 70). 연구동 1F·2F는 창 위 커텐박스의 단면이다(천장 끝에서 위로 150 올라간 THK1.6 갈바 판, 창 위 면은 천장보다 150 높다, 창틀 안쪽 면에서 판까지 340). 평면의 단면 표시(Ⓐ)와 짝을 찾고, 상세도의 표기 치수로 축척을 구해서 높이를 읽는다. 상세도에서 나온 높이는 `assumed` 가 아니다.
 16. **여닫이문**: 문짝 폭은 도면의 문짝 선 길이(벽 쪽 마구리에서 문짝 끝까지)다. 경첩은 문짝 선의 벽 쪽 끝이다. 열림 호의 원 맞춤은 확인용으로만 쓴다.
 17. **문틀과 점검구 문**: 도면에 문틀 블록이 그려진 문(출입문, 수채기실 문, 점검구)은 문 품목의 shapes에 문틀 상자를 넣는다. 재료분리대는 두 문틀 블록 사이의 점묘 범위다. 점검구 문짝은 도면 이중선의 중심선 위에 둔다. 문틀의 턱이 도면에 있으면 문설주마다 상자 2개로 그린다. 벽 마감 면이 점검구와 문의 개구를 막지 않아야 한다.
-    모델은 도면이 그린 상태(문이 열린 상태)를 그린다. 문틀 블록과 문짝은 그려진 대로 둔다. 닫힌 상태의 간섭을 없애려고 문틀을 깎거나 문짝을 줄이지 않는다. 닫힌 상태의 간섭은 `remark` 에 값으로 적는다. 그려진 상태에서 문짝의 경첩 쪽 끝이 문틀 블록에 문짝 두께 이하로 묻히는 것은 허용한다. 그 밖의 그려진 상태 겹침은 0이어야 한다. 출입문 문짝의 아래 끝은 재료분리대의 윗면이다(`node work/tools/leaf_threshold.mjs <전체 덤프>` 로 확인한다).
-18. **코너 비드의 높이**: 모서리가 있는 구간에만 그린다. 창 옆은 창대에서 창 상단까지, 위에 벽이 있는 문 옆은 바닥에서 문 상단까지다. 창 위나 문 위에 벽이 없으면 천장까지다. 비드 날개가 벽 상자와 겹치는지 `node work/tools/bead_overlap.mjs <전체 덤프>` 로 확인한다. 날개가 3mm 벽 마감 면(`finish` 레이어)과 겹치는 것은 허용한다. 비드는 마감 모서리를 감싼다. 높이 치수는 `cornerBead` 가 도형에서 만든다. `remark` 의 높이 설명이 도형과 같아야 한다.
+    모델은 도면이 그린 상태(문이 열린 상태)를 그린다. 문틀 블록과 문짝은 그려진 대로 둔다. 닫힌 상태의 간섭을 없애려고 문틀을 깎거나 문짝을 줄이지 않는다. 닫힌 상태의 간섭은 `remark` 에 값으로 적는다. 그려진 상태에서 문짝의 경첩 쪽 끝이 문틀 블록에 문짝 두께 이하로 묻히는 것은 허용한다. 그 밖의 그려진 상태 겹침은 0이어야 한다. 출입문 문짝의 아래 끝은 재료분리대의 윗면이다(`node tools/leaf_threshold.mjs <전체 덤프>` 로 확인한다).
+18. **코너 비드의 높이**: 모서리가 있는 구간에만 그린다. 창 옆은 창대에서 창 상단까지, 위에 벽이 있는 문 옆은 바닥에서 문 상단까지다. 창 위나 문 위에 벽이 없으면 천장까지다. 비드 날개가 벽 상자와 겹치는지 `node tools/bead_overlap.mjs <전체 덤프>` 로 확인한다. 날개가 3mm 벽 마감 면(`finish` 레이어)과 겹치는 것은 허용한다. 비드는 마감 모서리를 감싼다. 높이 치수는 `cornerBead` 가 도형에서 만든다. `remark` 의 높이 설명이 도형과 같아야 한다.
 19. **주기의 대상**: 「+」 해치 구역의 마감 주기는 그 구역의 `floor-*` 품목 `remark` 에 둔다. 모델 범위 밖의 대상을 가리키는 상세도 주기(예: 문틀 머리 위 복도 쪽 석고보드)는 어느 품목의 `note` 에도 넣지 않는다. 가까운 품목의 `remark` 와 측정값 문서의 「모델 제외 항목」에 원문을 적는다.
 20. **구역마다 다른 천장고**: 구역마다 CH 표기를 따로 읽는다. 다른 값이 있으면 `ceiling` 을 나누고 그 구역의 벽과 벽 마감을 그 높이까지 올린다. `ceilingHeight` 는 본실의 값이다. 뷰어는 카메라가 실내에 있으면 천장고 위 도형도 그린다.
 21. **형광펜만 있고 손글씨 「조명」이 없는 곳**: 조명 품목을 만들지 않는다. 측정값 문서에 위치를 적는다.
@@ -100,7 +100,7 @@
 ## 6. 화면 확인
 
 ```powershell
-node work/tools/cdp.mjs snap "sheet=<탭 id>&mode=plan&view=top&dim=1&cut=1200" work/verify/pN/top.png 2400x2400
+node tools/cdp.mjs snap "sheet=<탭 id>&mode=plan&view=top&dim=1&cut=1200" work/verify/pN/top.png 2400x2400
 ```
 
 - `cut=1200` 을 꼭 붙인다. 절단 높이의 기본값은 탭의 천장고다. 붙이지 않으면 문 위의 벽이 문 개구를 덮는다.
@@ -112,8 +112,8 @@ node work/tools/cdp.mjs snap "sheet=<탭 id>&mode=plan&view=top&dim=1&cut=1200" 
 - 실사 모드는 아이소 1장과 눈높이 1장만 찍는다. GPU가 1개다. 기다림을 길게 준다.
 
 ```powershell
-node work/tools/cdp.mjs snap "sheet=<탭 id>&view=iso&cut=1200" work/verify/pN/real_iso.png 1600x1000 25000
-node work/tools/cdp.mjs snap "sheet=<탭 id>&view=eye" work/verify/pN/real_eye.png 1600x1000 25000
+node tools/cdp.mjs snap "sheet=<탭 id>&view=iso&cut=1200" work/verify/pN/real_iso.png 1600x1000 25000
+node tools/cdp.mjs snap "sheet=<탭 id>&view=eye" work/verify/pN/real_eye.png 1600x1000 25000
 ```
 
 - `hq=1` 을 붙이지 않는다. 고품질 렌더는 GPU를 몇 분 동안 잡는다.
@@ -123,7 +123,7 @@ node work/tools/cdp.mjs snap "sheet=<탭 id>&view=eye" work/verify/pN/real_eye.p
 ```powershell
 pnpm exec eslint src/data/<탭>.ts src/data/<탭>_added.ts
 pnpm exec tsc --noEmit
-node work/tools/dump_model.mjs <탭 id> work/verify/pN/model.json
+node tools/dump_model.mjs <탭 id> work/verify/pN/model.json
 ```
 
 - `tsc` 의 출력에서 자기 파일의 줄만 본다. 다른 작성자의 파일이 작업 중일 수 있다.

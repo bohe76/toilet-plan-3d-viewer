@@ -14,3 +14,5 @@
 | `guides/` | [tab_verifier_brief.md](guides/tab_verifier_brief.md) | 독립 검증 에이전트의 순서, 규칙, 대조 항목 |
 | `guides/` | [project_story_for_friends.md](guides/project_story_for_friends.md) | 비개발자용 프로젝트 진행 이야기. 시간순 지시, 피드백, AI의 행동, 따라 하는 요령 |
 | `verification/` | `<탭>_verification.md` 8개 | 탭마다의 독립 검수 기록, 조율자 결정, 모델 제외 항목, 판정불가. [강의동 2F](verification/lecture_2f_verification.md), [3F](verification/lecture_3f_verification.md), [4F](verification/lecture_4f_verification.md), [연구동 1F](verification/research_1f_verification.md), [2F](verification/research_2f_verification.md), [3F(파일럿)](verification/research_3f_verification.md), [4F](verification/research_4f_verification.md), [5F](verification/research_5f_verification.md) |
+
+문서가 가리키는 `work/` 경로(측정 이미지, 검수 캡처, 작업 폴더)는 git 밖이라서 저장소에 없다. 측정 이미지는 `scripts/` 로 다시 만들 수 있다. 점검 도구는 `tools/` 에 있다.
