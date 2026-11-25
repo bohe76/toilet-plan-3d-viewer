@@ -92,7 +92,7 @@ export function App() {
   /** 화면 구성이나 시점이 바뀐 횟수. 바뀔 때마다 고품질 렌더의 시작 대기를 처음부터 다시 센다. */
   const [activity, setActivity] = useState(0);
   const [originalOpen, setOriginalOpen] = useState(false);
-  /** 조작법 창. 「다시 보지 않기」를 저장하지 않았으면 처음 접속 때 띄운다. */
+  /** 조작법 창을 띄울지. 「다시 보지 않기」를 저장하지 않았으면 처음 접속 때 띄운다. 실제로 보이는 때는 로딩이 끝난 뒤다(아래 HelpDialog). */
   const [helpOpen, setHelpOpen] = useState(() => !readHelpHidden());
   const [originalZoom, setOriginalZoom] = useState(1);
   const cursorText = useRef<HTMLSpanElement>(null);
@@ -524,7 +524,8 @@ export function App() {
         </div>
       )}
 
-      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {/* 로딩 중에는 띄우지 않는다. 실사 모드의 첫 화면은 메인 스레드를 수 초 막아서, 그동안 뜬 창은 닫기를 눌러도 닫히지 않는다. */}
+      <HelpDialog open={helpOpen && !loading} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
